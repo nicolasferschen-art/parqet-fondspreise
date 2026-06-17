@@ -1449,7 +1449,6 @@ def git_push_file(token, repo, path, content_bytes, message, branch="main"):
     # Bestehende SHA holen (falls Datei existiert)
     sha = None
     try:
-        r = graph_get.__wrapped__ if hasattr(graph_get, '__wrapped__') else None
         req = Request(
             f"https://api.github.com/repos/{repo}/contents/{path}?ref={branch}",
             headers={"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"},
