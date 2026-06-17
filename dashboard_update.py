@@ -545,7 +545,7 @@ def generate_html(funds_data, updated_at):
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IQAM Fonds Dashboard</title>
+<title>Sunrise.app Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root {{
@@ -640,7 +640,7 @@ tr:hover td {{ background: var(--surface2); }}
 
 <div class="sticky-header">
   <div>
-    <h1>📊 IQAM Fonds Dashboard</h1>
+    <h1>☀️ Sunrise.app Dashboard</h1>
     <div class="updated">Stand: {updated_at}</div>
   </div>
   <div class="header-kpis">
