@@ -2,30 +2,21 @@ name: IQAM Dashboard Update
 
 on:
   schedule:
-    # Täglich Mo–Fr um 14:30 UTC (= 15:30/16:30 CET/CEST)
-    # Die Fund-Reports kommen laut Nico täglich per Mail – diese Zeit
-    # ist großzügig gewählt damit die Mail sicher angekommen ist.
+    # Täglich Mo–Fr um 13:30 UTC (= 15:30 CEST / 14:30 CET)
     - cron: "30 13 * * 1-5"
   workflow_dispatch:
-    # Manueller Trigger (z.B. bei Nachholbedarf)
+    # Manueller Trigger über GitHub Actions UI
 
 permissions:
-  contents: write   # Für GitHub Pages push (docs/)
-  pages: write      # Für GitHub Pages Aktivierung
-  id-token: write   # Für Pages OIDC
+  contents: write   # Für direkten Push in docs/ via GitHub API
 
 jobs:
   update-dashboard:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.pages.outputs.page_url }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Python setup
         uses: actions/setup-python@v5
@@ -33,39 +24,23 @@ jobs:
           python-version: "3.12"
 
       - name: Abhängigkeiten installieren
-        run: |
-          pip install openpyxl msal --quiet
+        run: pip install openpyxl msal --quiet
 
       - name: Dashboard aktualisieren
         env:
-          MS_CLIENT_ID:     ${{ secrets.MS_CLIENT_ID }}
-          MS_TENANT_ID:     ${{ secrets.MS_TENANT_ID }}
-          MS_REFRESH_TOKEN: ${{ secrets.MS_REFRESH_TOKEN }}
-          GITHUB_TOKEN:     ${{ secrets.GITHUB_TOKEN }}
+          MS_CLIENT_ID:      ${{ secrets.MS_CLIENT_ID }}
+          MS_TENANT_ID:      ${{ secrets.MS_TENANT_ID }}
+          MS_REFRESH_TOKEN:  ${{ secrets.MS_REFRESH_TOKEN }}
+          GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: |
-          python dashboard_update.py
-
-      - name: GitHub Pages Setup
-        id: pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs/
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+        run: python dashboard_update.py
 
       - name: Job Summary
         if: always()
         run: |
           echo "## IQAM Dashboard Update" >> $GITHUB_STEP_SUMMARY
-          echo "**Datum:** $(date -u '+%d.%m.%Y %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
-          echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
-          if [ -f docs/index.html ]; then
-            SIZE=$(wc -c < docs/index.html)
-            echo "**Dashboard-Größe:** ${SIZE} Bytes" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "| Feld | Wert |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Datum | $(date -u '+%d.%m.%Y %H:%M UTC') |" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | ${{ job.status }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dashboard | https://nicolasferschen-art.github.io/parqet-fondspreise/ |" >> $GITHUB_STEP_SUMMARY
