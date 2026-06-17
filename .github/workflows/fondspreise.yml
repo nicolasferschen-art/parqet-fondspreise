@@ -1,0 +1,32 @@
+name: Fondspreise täglich updaten
+
+on:
+  schedule:
+    # Täglich Mo–Fr um 16:00 UTC = 17:00 CET / 18:00 CEST
+    # OeKB publiziert NAV bis ~16 Uhr, 17 Uhr ist sicher
+    - cron: "0 16 * * 1-5"
+  workflow_dispatch:  # Manueller Start jederzeit möglich
+
+jobs:
+  update-fondspreise:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      issues: write   # Für Benachrichtigungs-Issues bei fehlenden Daten
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fondspreise updaten
+        env:
+          PARQET_USER: ${{ secrets.PARQET_USER }}
+          PARQET_PASS: ${{ secrets.PARQET_PASS }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python fondspreise.py
