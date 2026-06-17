@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
+      contents: read  # Für actions/checkout
       issues: write   # Für Benachrichtigungs-Issues bei fehlenden Daten
 
     steps:
