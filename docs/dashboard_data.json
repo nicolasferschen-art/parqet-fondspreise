@@ -10,83 +10,83 @@
     "countries": [
       {
         "label": "Austria",
-        "value": 46930981.3
+        "value": 28.06
       },
       {
         "label": "Austria",
-        "value": 381704.4
+        "value": 0.26
       },
       {
         "label": "Belgium",
-        "value": 490074.3
+        "value": 0.29
       },
       {
         "label": "Canada",
-        "value": 2004975.06
+        "value": 0.74
       },
       {
         "label": "Cayman Islands",
-        "value": 6623716.9
+        "value": 0.44
       },
       {
         "label": "Cayman Islands",
-        "value": 309606.3
+        "value": 0.16
       },
       {
         "label": "Denmark",
-        "value": 4591015.6
+        "value": 0.37
       },
       {
         "label": "Finland",
-        "value": 593026.06
+        "value": 0.35
       },
       {
         "label": "France",
-        "value": 4850269.09
+        "value": 2.9
       },
       {
         "label": "Germany",
-        "value": 19319346.23
+        "value": 11.55
       },
       {
         "label": "Ireland",
-        "value": 623674.2
+        "value": 0.37
       },
       {
         "label": "Ireland",
-        "value": 12330438.49
+        "value": 6.35
       },
       {
         "label": "Israel",
-        "value": 358929.98
+        "value": 0.18
       },
       {
         "label": "Italy",
-        "value": 7011501.75
+        "value": 4.19
       },
       {
         "label": "Japan",
-        "value": 815782751.0
+        "value": 2.62
       },
       {
         "label": "Jersey",
-        "value": 16574.49
+        "value": 0.01
       },
       {
         "label": "Netherlands",
-        "value": 1734128.39
+        "value": 1.04
       },
       {
         "label": "Netherlands",
-        "value": 93822.77
+        "value": 0.05
       },
       {
         "label": "Norway",
-        "value": 12753165.2
+        "value": 0.69
       },
       {
         "label": "Republic of Korea",
-        "value": 3344140.0
+        "value": 1.72
       },
       {
         "label": "Russian Federation",
@@ -94,99 +94,99 @@
       },
       {
         "label": "Singapore",
-        "value": 1336475.28
+        "value": 0.69
       },
       {
         "label": "Spain",
-        "value": 1291277.04
+        "value": 0.77
       },
       {
         "label": "Sweden",
-        "value": 29079241.35
+        "value": 1.6
       },
       {
         "label": "Switzerland",
-        "value": 7833751.58
+        "value": 5.09
       },
       {
         "label": "Switzerland",
-        "value": 294187.38
+        "value": 0.2
       },
       {
         "label": "United Kingdom",
-        "value": 1718808.52
+        "value": 1.03
       },
       {
         "label": "United Kingdom",
-        "value": 2458649.89
+        "value": 1.7
       },
       {
         "label": "United Kingdom",
-        "value": 227792.02
+        "value": 0.12
       },
       {
         "label": "United States",
-        "value": 48293922.44
+        "value": 24.87
       }
     ],
     "currencies": [
       {
         "label": "CAD",
-        "value": 2004975.06
+        "value": 0.74
       },
       {
         "label": "CHF",
-        "value": 7833751.58
+        "value": 5.09
       },
       {
         "label": "DKK",
-        "value": 4591015.6
+        "value": 0.37
       },
       {
         "label": "EUR",
-        "value": 84563086.88
+        "value": 50.56
       },
       {
         "label": "GBP",
-        "value": 3151116.16
+        "value": 2.18
       },
       {
         "label": "HKD",
-        "value": 6623716.9
+        "value": 0.44
       },
       {
         "label": "JPY",
-        "value": 815782751.0
+        "value": 2.62
       },
       {
         "label": "NOK",
-        "value": 12753165.2
+        "value": 0.69
       },
       {
         "label": "SEK",
-        "value": 29079241.35
+        "value": 1.6
       },
       {
         "label": "USD",
-        "value": 66300678.49
+        "value": 34.15
       }
     ],
     "sectors": [
       {
         "label": "509",
-        "value": 1658516.51
+        "value": 0.99
       },
       {
         "label": "511",
-        "value": 160715608.81
+        "value": 96.08
       },
       {
         "label": "512",
-        "value": 288171.44
+        "value": 0.17
       },
       {
         "label": "931",
-        "value": 1963864.97
+        "value": 1.17
       }
     ],
     "nav_per_share_prev": null,
@@ -3508,191 +3508,191 @@
     "countries": [
       {
         "label": "Austria",
-        "value": 1762614.79
+        "value": 3.19
       },
       {
         "label": "Austria",
-        "value": 57974.4
+        "value": 0.12
       },
       {
         "label": "Belgium",
-        "value": 449345.92
+        "value": 0.81
       },
       {
         "label": "Bermuda",
-        "value": 316315.0
+        "value": 0.49
       },
       {
         "label": "Canada",
-        "value": 677977.94
+        "value": 0.75
       },
       {
         "label": "Cayman Islands",
-        "value": 213978.74
+        "value": 0.04
       },
       {
         "label": "Cayman Islands",
-        "value": 92770.92
+        "value": 0.14
       },
       {
         "label": "Curacao",
-        "value": 72758.97
+        "value": 0.11
       },
       {
         "label": "Denmark",
-        "value": 1611493.6
+        "value": 0.39
       },
       {
         "label": "Finland",
-        "value": 490182.43
+        "value": 0.89
       },
       {
         "label": "France",
-        "value": 2901572.81
+        "value": 5.25
       },
       {
         "label": "Germany",
-        "value": 14542869.96
+        "value": 26.29
       },
       {
         "label": "Ireland",
-        "value": 98967.6
+        "value": 0.18
       },
       {
         "label": "Ireland",
-        "value": 155328.0
+        "value": 0.03
       },
       {
         "label": "Ireland",
-        "value": 1484260.69
+        "value": 2.31
       },
       {
         "label": "Israel",
-        "value": 197163.81
+        "value": 0.31
       },
       {
         "label": "Italy",
-        "value": 1115937.08
+        "value": 2.02
       },
       {
         "label": "Japan",
-        "value": 272600331.0
+        "value": 2.65
       },
       {
         "label": "Netherlands",
-        "value": 578470.91
+        "value": 1.05
       },
       {
         "label": "Netherlands",
-        "value": 127061.64
+        "value": 0.2
       },
       {
         "label": "Norway",
-        "value": 1360931.4
+        "value": 0.22
       },
       {
         "label": "Republic of Korea",
-        "value": 596200.0
+        "value": 0.93
       },
       {
         "label": "Russian Federation",
-        "value": 3236.07
+        "value": 0.01
       },
       {
         "label": "Spain",
-        "value": 694100.48
+        "value": 1.25
       },
       {
         "label": "Sweden",
-        "value": 8722565.45
+        "value": 1.45
       },
       {
         "label": "Switzerland",
-        "value": 1458013.06
+        "value": 2.86
       },
       {
         "label": "Switzerland",
-        "value": 45933.96
+        "value": 0.1
       },
       {
         "label": "Taiwan",
-        "value": 1957966.34
+        "value": 3.05
       },
       {
         "label": "United Kingdom",
-        "value": 1048676.62
+        "value": 1.9
       },
       {
         "label": "United Kingdom",
-        "value": 1011771.71
+        "value": 2.12
       },
       {
         "label": "United Kingdom",
-        "value": 116305.7
+        "value": 0.18
       },
       {
         "label": "United States",
-        "value": 23513814.63
+        "value": 36.62
       }
     ],
     "currencies": [
       {
         "label": "CAD",
-        "value": 677977.94
+        "value": 0.75
       },
       {
         "label": "CHF",
-        "value": 1458013.06
+        "value": 2.86
       },
       {
         "label": "DKK",
-        "value": 1611493.6
+        "value": 0.39
       },
       {
         "label": "EUR",
-        "value": 23682738.6
+        "value": 42.81
       },
       {
         "label": "GBP",
-        "value": 1115680.07
+        "value": 2.33
       },
       {
         "label": "HKD",
-        "value": 213978.74
+        "value": 0.04
       },
       {
         "label": "JPY",
-        "value": 272600331.0
+        "value": 2.65
       },
       {
         "label": "NOK",
-        "value": 1360931.4
+        "value": 0.22
       },
       {
         "label": "SEK",
-        "value": 8877893.45
+        "value": 1.48
       },
       {
         "label": "USD",
-        "value": 28477853.77
+        "value": 44.35
       }
     ],
     "sectors": [
       {
         "label": "509",
-        "value": 209052.99
+        "value": 0.38
       },
       {
         "label": "511",
-        "value": 53309151.13
+        "value": 96.37
       },
       {
         "label": "512",
-        "value": 183504.8
+        "value": 0.33
       },
       {
         "label": "931",
-        "value": 449770.51
+        "value": 0.81
       }
     ],
     "nav_per_share_prev": null,
@@ -7206,147 +7206,147 @@
     "countries": [
       {
         "label": "Australia",
-        "value": 48699.88
+        "value": 0.21
       },
       {
         "label": "Austria",
-        "value": 278188.5
+        "value": 1.04
       },
       {
         "label": "Belgium",
-        "value": 164781.7
+        "value": 0.62
       },
       {
         "label": "Canada",
-        "value": 152625.87
+        "value": 0.35
       },
       {
         "label": "Denmark",
-        "value": 108476.1
+        "value": 0.05
       },
       {
         "label": "Finland",
-        "value": 567808.2
+        "value": 2.12
       },
       {
         "label": "France",
-        "value": 2354963.01
+        "value": 8.8
       },
       {
         "label": "Germany",
-        "value": 2574469.55
+        "value": 9.62
       },
       {
         "label": "Ireland",
-        "value": 6219805.19
+        "value": 23.24
       },
       {
         "label": "Ireland",
-        "value": 305741.98
+        "value": 0.98
       },
       {
         "label": "Italy",
-        "value": 665845.1
+        "value": 2.49
       },
       {
         "label": "Japan",
-        "value": 174024785.5
+        "value": 3.49
       },
       {
         "label": "Jersey",
-        "value": 106680.08
+        "value": 0.46
       },
       {
         "label": "Luxembourg",
-        "value": 3108899.56
+        "value": 11.62
       },
       {
         "label": "Netherlands",
-        "value": 1515430.42
+        "value": 5.66
       },
       {
         "label": "Netherlands",
-        "value": 157199.91
+        "value": 0.51
       },
       {
         "label": "Republic of Korea",
-        "value": 162600.0
+        "value": 0.52
       },
       {
         "label": "Spain",
-        "value": 770427.92
+        "value": 2.88
       },
       {
         "label": "Switzerland",
-        "value": 354440.86
+        "value": 1.44
       },
       {
         "label": "Taiwan",
-        "value": 1019011.19
+        "value": 3.2800000000000002
       },
       {
         "label": "United Kingdom",
-        "value": 240576.66
+        "value": 0.9
       },
       {
         "label": "United Kingdom",
-        "value": 1306925.87
+        "value": 5.65
       },
       {
         "label": "United States",
-        "value": 3793657.4
+        "value": 12.21
       }
     ],
     "currencies": [
       {
         "label": "CAD",
-        "value": 152625.87
+        "value": 0.35
       },
       {
         "label": "CHF",
-        "value": 354440.86
+        "value": 1.44
       },
       {
         "label": "DKK",
-        "value": 108476.1
+        "value": 0.05
       },
       {
         "label": "EUR",
-        "value": 18461195.81
+        "value": 68.99
       },
       {
         "label": "GBP",
-        "value": 1462305.83
+        "value": 6.32
       },
       {
         "label": "JPY",
-        "value": 174024785.5
+        "value": 3.49
       },
       {
         "label": "USD",
-        "value": 5438210.48
+        "value": 17.51
       }
     ],
     "sectors": [
       {
         "label": "509",
-        "value": 166081.67
+        "value": 0.62
       },
       {
         "label": "511",
-        "value": 16677021.79
+        "value": 62.32
       },
       {
         "label": "512",
-        "value": 56872.48
+        "value": 0.21
       },
       {
         "label": "805",
-        "value": 9328704.75
+        "value": 34.86
       },
       {
         "label": "931",
-        "value": 37312.5
+        "value": 0.14
       }
     ],
     "nav_per_share_prev": null,
