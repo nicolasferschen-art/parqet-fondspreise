@@ -62,8 +62,11 @@ def get_access_token():
 
 # ─── Graph API Helper ─────────────────────────────────────────────────────────
 def graph_get(access_token, path):
+    from urllib.parse import quote
+    # Encode spaces and special chars in the path (but keep / ? & = $ intact)
+    safe_path = quote(path, safe="/?&=.$,@'_-+:")
     req = Request(
-        f"https://graph.microsoft.com/v1.0{path}",
+        f"https://graph.microsoft.com/v1.0{safe_path}",
         headers={"Authorization": f"Bearer {access_token}", "Accept": "application/json"},
     )
     with urlopen(req) as resp:
@@ -71,8 +74,10 @@ def graph_get(access_token, path):
 
 
 def graph_get_bytes(access_token, path):
+    from urllib.parse import quote
+    safe_path = quote(path, safe="/?&=.$,@'_-+:")
     req = Request(
-        f"https://graph.microsoft.com/v1.0{path}",
+        f"https://graph.microsoft.com/v1.0{safe_path}",
         headers={"Authorization": f"Bearer {access_token}"},
     )
     with urlopen(req) as resp:
