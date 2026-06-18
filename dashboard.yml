@@ -1,0 +1,50 @@
+name: IQAM Dashboard Update
+
+on:
+  schedule:
+    # Täglich Mo–Fr um 13:30 UTC (= 15:30 CEST / 14:30 CET)
+    - cron: "30 13 * * 1-5"
+  push:
+    branches: [main]
+    paths:
+      - "dashboard_update.py"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-dashboard:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python setup
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Abhängigkeiten installieren
+        run: pip install openpyxl msal --quiet
+
+      - name: Dashboard aktualisieren
+        env:
+          MS_CLIENT_ID:       ${{ secrets.MS_CLIENT_ID }}
+          MS_TENANT_ID:       ${{ secrets.MS_TENANT_ID }}
+          MS_REFRESH_TOKEN:   ${{ secrets.MS_REFRESH_TOKEN }}
+          GITHUB_TOKEN:       ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY:  ${{ github.repository }}
+          ANTHROPIC_API_KEY:  ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python dashboard_update.py
+
+      - name: Job Summary
+        if: always()
+        run: |
+          echo "## IQAM Dashboard Update" >> $GITHUB_STEP_SUMMARY
+          echo "| Feld | Wert |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Datum | $(date -u '+%d.%m.%Y %H:%M UTC') |" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | ${{ job.status }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dashboard | https://nicolasferschen-art.github.io/sunrise-dashboard/ |" >> $GITHUB_STEP_SUMMARY
