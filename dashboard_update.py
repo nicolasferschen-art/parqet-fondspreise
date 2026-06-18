@@ -100,30 +100,31 @@ def graph_get_bytes(access_token, path):
 # ─── Mail + Attachment suchen ─────────────────────────────────────────────────
 def find_latest_emails(access_token):
     """Holt die neuesten Mails je Fond (nach Subject-Keyword)."""
-    today_str = date.today().isoformat()  # z.B. "2026-06-17"
-
-    # Letzten 5 Mails vom Sender laden, nach Datum sortiert
+    # Letzten 50 Mails holen (ohne $filter, client-side filtern nach Sender)
     path = (
-        f"/me/messages"
-        f"?$filter=from/emailAddress/address eq '{SENDER_EMAIL}'"
-        f"&$orderby=receivedDateTime desc"
-        f"&$top=20"
-        f"&$select=id,subject,receivedDateTime,hasAttachments"
+        "/me/messages"
+        "?$top=50"
+        "&$orderby=receivedDateTime desc"
+        "&$select=id,subject,receivedDateTime,hasAttachments,from"
     )
     data = graph_get(access_token, path)
     messages = data.get("value", [])
-    print(f"📧 {len(messages)} Mails von {SENDER_EMAIL} gefunden")
+    print(f"📧 {len(messages)} Mails insgesamt geladen")
 
-    # Pro Fund die neueste Mail finden
+    # Nach Sender + Fund-ID filtern
     fund_mails = {}
     for msg in messages:
-        subj = msg.get("subject", "")
+        sender = msg.get("from", {}).get("emailAddress", {}).get("address", "").lower()
+        subj   = msg.get("subject", "")
+        if sender != SENDER_EMAIL.lower():
+            continue
         for fund in FUNDS:
             fid = fund["id"]
             if fid in subj and fid not in fund_mails:
                 fund_mails[fid] = msg
                 print(f"  → Fund {fid}: {subj[:60]} ({msg['receivedDateTime'][:10]})")
 
+    print(f"  Gefunden: {list(fund_mails.keys())}")
     return fund_mails
 
 
