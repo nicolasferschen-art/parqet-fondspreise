@@ -701,7 +701,7 @@ def build_price_history(nav_per_share, perf_ytd, perf_fy, nav_per_share_prev=Non
 
 # ─── News fetchen ─────────────────────────────────────────────────────────────
 def summarize_news(company_name, articles, anthropic_key):
-    """Fasst News-Schlagzeilen via Claude Haiku zu einem Fließtext zusammen."""
+    """Fasst News-Schlagzeilen via Claude Haiku zu Überschrift + Fließtext zusammen."""
     if not anthropic_key or not articles:
         return None
     headlines = "\n".join(
@@ -709,14 +709,20 @@ def summarize_news(company_name, articles, anthropic_key):
         for a in articles
     )
     prompt = (
-        f"Du schreibst für ein internes Fondsdashboard. "
-        f"Fasse die folgenden News über {company_name} in 2–6 Sätzen zusammen.\n"
-        f"Stil: locker, informativ, knackig. Fließtext auf Deutsch. Keine Aufzählungen.\n\n"
-        f"Schlagzeilen:\n{headlines}\n\nNur den Fließtext ausgeben, keine Überschrift."
+        f"Du bist Redakteur eines internen Fondsdashboards für institutionelle Investoren.\n\n"
+        f"Unternehmen: {company_name}\n"
+        f"Schlagzeilen:\n{headlines}\n\n"
+        f"Aufgabe: Wähle nur die Schlagzeilen aus, die wirklich relevant für dieses Unternehmen sind "
+        f"(Geschäftsentwicklung, Strategie, Produkte, Management, Märkte, Regulierung, M&A, Ergebnisse). "
+        f"Ignoriere komplett irrelevante Meldungen (falscher Kontext, Lifestyle, Gaming, off-topic).\n\n"
+        f"Falls keine einzige Schlagzeile relevant ist, antworte nur mit: IRRELEVANT\n\n"
+        f"Sonst antworte exakt in diesem Format:\n"
+        f"HEADLINE: [prägnante Überschrift auf Deutsch]\n"
+        f"TEXT: [2–6 Sätze, locker-informativer Fließtext auf Deutsch, direkt nutzbar]"
     )
     body = json.dumps({
         "model": "claude-haiku-4-5-20251001",
-        "max_tokens": 350,
+        "max_tokens": 400,
         "messages": [{"role": "user", "content": prompt}],
     }).encode()
     req = Request(
@@ -730,7 +736,16 @@ def summarize_news(company_name, articles, anthropic_key):
     try:
         with urlopen(req, timeout=20) as resp:
             result = json.loads(resp.read())
-            return result["content"][0]["text"].strip()
+            raw = result["content"][0]["text"].strip()
+        if raw.startswith("IRRELEVANT"):
+            return None
+        headline, text = "", ""
+        for line in raw.splitlines():
+            if line.startswith("HEADLINE:"):
+                headline = line[9:].strip()
+            elif line.startswith("TEXT:"):
+                text = line[5:].strip()
+        return {"headline": headline, "text": text} if (headline or text) else None
     except Exception as e:
         print(f"    ⚠️  Haiku-Fehler für {company_name}: {e}")
         return None
@@ -747,8 +762,32 @@ def _clean_news_name(name):
     return ' '.join(clean.split()[:3])
 
 
-def fetch_all_news(companies, max_per_company=3, request_timeout=5, anthropic_key=None, max_summaries=50):
-    """Fetcht News via Google News RSS für alle Unternehmen, optional mit Haiku-Zusammenfassung."""
+    # Domains die keine Finanz-News liefern → werden herausgefiltert
+_BLOCKLIST_DOMAINS = {
+    "xboxdynasty", "filmstarts", "photografix", "connect.de", "computerbild",
+    "chip.de", "heise.de", "golem.de", "computerbase", "ign.com", "gamestar",
+    "gamesradar", "eurogamer", "kotaku", "polygon.com", "pcgamer", "hardwareluxx",
+    "notebookcheck", "techradar", "theverge", "engadget", "wired.com",
+    "solidbau", "immobilien", "realestate", "architekt", "bau.de",
+}
+
+def _is_finance_relevant(title, source):
+    """Prüft ob ein Artikel finanziell relevant ist."""
+    src_low = source.lower()
+    if any(bl in src_low for bl in _BLOCKLIST_DOMAINS):
+        return False
+    # Titel-Filter: mindestens ein Finanz-Keyword oder kein offensichtliches Off-Topic
+    off_topic = ["rezept", "urlaub", "reise", "gaming", "spiel ", "film ", "serie ",
+                 "musik", "mode ", "beauty", "gesundheit", "sport ", "fußball",
+                 "küche", "wohnen", "garten"]
+    title_low = title.lower()
+    if any(kw in title_low for kw in off_topic):
+        return False
+    return True
+
+
+def fetch_all_news(companies, max_per_company=8, request_timeout=5, anthropic_key=None, max_summaries=50):
+    """Fetcht Finanz-News via Google News RSS für alle Unternehmen, optional mit Haiku-Zusammenfassung."""
     import xml.etree.ElementTree as ET
     import time as _time
     from urllib.parse import quote as _quote
@@ -774,12 +813,14 @@ def fetch_all_news(companies, max_per_company=3, request_timeout=5, anthropic_ke
                 content = resp.read()
             root = ET.fromstring(content)
             arts = []
-            for el in root.findall(".//item")[:max_per_company]:
+            for el in root.findall(".//item"):
+                if len(arts) >= max_per_company:
+                    break
                 title = re.sub(r"<[^>]+>|<!\[CDATA\[|\]\]>", "", el.findtext("title") or "").strip()
                 link  = (el.findtext("link") or "#").strip()
                 pub   = (el.findtext("pubDate") or "").strip()
                 src   = getattr(el.find("source"), "text", "") or ""
-                if title:
+                if title and _is_finance_relevant(title, src):
                     arts.append({"title": title, "link": link, "pubDate": pub, "source": src})
             if arts:
                 do_summary = summarize and summary_count < max_summaries
@@ -1310,7 +1351,7 @@ tr:hover td {{ background: var(--surface2); }}
     <div class="section-title" style="margin:0">📰 News — Alle Positionen</div>
     <div style="font-size:12px;color:var(--muted);margin-top:4px" id="news-status">Lade…</div>
   </div>
-  <button onclick="location.reload()"
+  <button onclick="try{sessionStorage.setItem('activeTab','news')}catch(e){}; location.reload()"
     style="background:none;border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:12px;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:6px"
     onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
     onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">↻ Aktualisieren</button>
@@ -1395,7 +1436,15 @@ document.querySelectorAll('.tab').forEach(tab => {
 function switchTab(id) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
   document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + id));
+  try { sessionStorage.setItem('activeTab', id); } catch(e) {}
 }
+// Tab nach Reload wiederherstellen
+(function() {
+  try {
+    const saved = sessionStorage.getItem('activeTab');
+    if (saved) { sessionStorage.removeItem('activeTab'); switchTab(saved); }
+  } catch(e) {}
+})();
 
 // ── Number formatting ──────────────────────────────────────────────────────
 function fmtEur(n, dec=2) {
@@ -2022,9 +2071,11 @@ function renderNewsPanel(fundFilter) {
 
     const newestDate = _fmtD((co.articles[0]?.pubDate) || '');
 
-    const summaryHtml = co.summary
-      ? `<p style="margin:10px 0 0;font-size:14px;line-height:1.65;color:var(--text)">${_escH(co.summary)}</p>`
-      : (co.articles[0] ? `<p style="margin:10px 0 0;font-size:14px;line-height:1.65;color:var(--muted);font-style:italic">${_escH(co.articles[0].title)}</p>` : '');
+    const s = co.summary;
+    const summaryHtml = s
+      ? `${s.headline ? `<div style="margin:10px 0 4px;font-size:14px;font-weight:700;color:var(--text);line-height:1.4">${_escH(s.headline)}</div>` : ''}
+         <p style="margin:0;font-size:13px;line-height:1.65;color:var(--text)">${_escH(s.text || '')}</p>`
+      : (co.articles[0] ? `<p style="margin:10px 0 0;font-size:13px;line-height:1.65;color:var(--muted);font-style:italic">${_escH(co.articles[0].title)}</p>` : '');
 
     const sources = (co.articles||[]).map(a => {
       let label = a.source || '';
