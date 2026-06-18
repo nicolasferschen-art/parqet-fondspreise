@@ -1966,8 +1966,8 @@ def _build_all_holdings_table(funds_data):
     fund_short = [f["name"].split("–")[-1].strip()[:18] for f in funds_data]
 
     html = '<div class="tbl-controls">\n'
-    html += '<input type="text" id="search-all" placeholder="Name, ISIN, Land …" oninput="renderAllTable()">\n'
-    html += '<select id="filter-all-funds" onchange="renderAllTable()">\n'
+    html += '<input type="text" id="search-all" placeholder="Name, ISIN, Land …" oninput="_allState.page=1;renderAllTable()">\n'
+    html += '<select id="filter-all-funds" onchange="_allState.page=1;renderAllTable()">\n'
     html += '<option value="">Alle Fonds</option>\n'
     html += '<option value="multi">In mehreren Fonds</option>\n'
     for fid, fname in zip(fund_ids, fund_short):
@@ -1985,9 +1985,7 @@ def _build_all_holdings_table(funds_data):
     html += '</tr></thead>\n<tbody id="tbody-all">\n'
 
     for item in sorted_items:
-        fund_count = len(item["funds"])
-        row_class = ' style="background:var(--surface2)"' if fund_count >= 2 else ""
-        html += f'<tr{row_class} data-name="{item["name"].lower()}" data-isin="{item["isin"].lower()}" data-country="{(item["country"] or "").lower()}" data-funds="{",".join(item["funds"].keys())}">'
+        html += f'<tr data-name="{item["name"].lower()}" data-isin="{item["isin"].lower()}" data-country="{(item["country"] or "").lower()}" data-funds="{",".join(item["funds"].keys())}">'
         html += f'<td>{item["name"][:45]}</td>'
         html += f'<td style="font-size:11px;color:var(--muted)">{item["isin"]}</td>'
         html += f'<td>{item["country"]}</td>'
