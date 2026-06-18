@@ -2,9 +2,10 @@
   {
     "id": "3411",
     "isin": "AT0000A1QA38",
-    "color": "#1a56db",
+    "color": "#F97316",
     "name": "Standortfonds AT",
     "nav": 167203974.33,
+    "shares": 742088.912,
     "nav_per_share": 225.4,
     "perf_ytd": 16.914778,
     "perf_fy": 23.179024,
@@ -294,7 +295,7 @@
         "value": 0.0
       }
     ],
-    "nav_per_share_prev": 225.56,
+    "nav_per_share_prev": 225.4,
     "nav_prev": 167203974.33,
     "price_history": [
       {
@@ -312,7 +313,7 @@
       {
         "date": "2026-06-17",
         "label": "17.06.2026",
-        "price": 225.56,
+        "price": 225.4,
         "note": "Vortag (Inventarblatt)"
       },
       {
@@ -3630,9 +3631,10 @@
   {
     "id": "3431",
     "isin": "AT0000A1Z882",
-    "color": "#d03801",
+    "color": "#3B7DD8",
     "name": "Standortfonds DE",
     "nav": 55433569.02,
+    "shares": 288812.129,
     "nav_per_share": 191.52,
     "perf_ytd": 10.833333,
     "perf_fy": 15.013279,
@@ -3914,7 +3916,7 @@
         "value": 0.04
       }
     ],
-    "nav_per_share_prev": 2188.27,
+    "nav_per_share_prev": 191.52,
     "nav_prev": 55433569.02,
     "price_history": [
       {
@@ -3932,7 +3934,7 @@
       {
         "date": "2026-06-17",
         "label": "17.06.2026",
-        "price": 2188.27,
+        "price": 191.52,
         "note": "Vortag (Inventarblatt)"
       },
       {
@@ -7442,9 +7444,10 @@
   {
     "id": "3581",
     "isin": "AT0000A3EAW0",
-    "color": "#046c4e",
+    "color": "#16A34A",
     "name": "Dividends and Interest",
     "nav": 26786317.91,
+    "shares": 236978.871,
     "nav_per_share": 112.91,
     "perf_ytd": 5.849817,
     "perf_fy": 8.898999,
@@ -7646,7 +7649,7 @@
         "value": 0.16
       }
     ],
-    "nav_per_share_prev": 113.08,
+    "nav_per_share_prev": 112.91,
     "nav_prev": 26786317.91,
     "price_history": [
       {
@@ -7664,7 +7667,7 @@
       {
         "date": "2026-06-17",
         "label": "17.06.2026",
-        "price": 113.08,
+        "price": 112.91,
         "note": "Vortag (Inventarblatt)"
       },
       {
