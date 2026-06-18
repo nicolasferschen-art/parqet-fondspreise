@@ -896,6 +896,7 @@ tr:hover td {{ background: var(--surface2); }}
         html += f'  <div class="tab" data-tab="fund-{f["id"]}">{f["name"]}</div>\n'
 
     html += '  <div class="tab" data-tab="winners">🏆 Gewinner/Verlierer</div>\n'
+    html += '  <div class="tab" data-tab="news">📰 News</div>\n'
     html += '  <div class="tab" data-tab="calc">🧮 Rechner</div>\n'
     html += '</div>\n\n'
 
@@ -1246,6 +1247,22 @@ tr:hover td {{ background: var(--surface2); }}
 '''
     html += '</div>\n\n'  # end winners panel
 
+    # ── News Panel ───────────────────────────────────────────────────────────
+    html += '<div class="panel" id="panel-news">\n'
+    html += '''<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+  <div>
+    <div class="section-title" style="margin:0">📰 News — Top-Positionen</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:4px" id="news-status">Klicke auf den Tab um Nachrichten zu laden.</div>
+  </div>
+  <button onclick="loadNews(true)" id="news-refresh-btn" class="range-btn" style="padding:8px 16px;font-size:13px">↻ Aktualisieren</button>
+</div>
+<div id="news-progress-wrap" style="height:4px;background:var(--border);border-radius:2px;margin-bottom:20px;display:none">
+  <div id="news-progress-bar" style="height:100%;width:0%;background:var(--accent);border-radius:2px;transition:width .4s"></div>
+</div>
+<div id="news-feed" style="display:grid;gap:10px"></div>
+'''
+    html += '</div>\n\n'  # end news panel
+
     # ── Calculator Panel ────────────────────────────────────────────────────
     html += '<div class="panel" id="panel-calc">\n'
     html += '<div class="section-title">🧮 Performance-Rechner</div>\n'
@@ -1538,12 +1555,19 @@ function renderWLDay() {
   buildWLRows(dayLosers,  'wl-day-losers');
 }
 
-// Init on tab open
+// Init W/L: render on load + re-render on tab click
+let _wlRendered = false;
+function initWL() {
+  if (_wlRendered) return;
+  _wlRendered = true;
+  renderWLPL();
+  renderWLMonth();
+  renderWLDay();
+}
 document.querySelectorAll('.tab').forEach(t => {
-  if (t.dataset.tab === 'winners') {
-    t.addEventListener('click', () => { renderWLPL(); renderWLMonth(); renderWLDay(); });
-  }
+  if (t.dataset.tab === 'winners') t.addEventListener('click', initWL);
 });
+setTimeout(initWL, 600);
 
 // ── Per-Fund Charts ────────────────────────────────────────────────────────
 FUNDS_DATA.forEach(fund => {
@@ -2070,6 +2094,134 @@ function sortAllTable(key) {
   _allState.page=1; renderAllTable();
 }
 setTimeout(renderAllTable, 200);
+
+// ── News ──────────────────────────────────────────────────────────────────
+// Build top 25 companies by combined market value across all funds
+(function() {
+  const cmap = {};
+  FUNDS_DATA.forEach(fund => {
+    const shortName = fund.name.replace('Standortfonds ','SF ').replace('Dividends and Interest','D&I');
+    (fund.holdings || []).forEach(h => {
+      if (!h.name || h.name === 'None') return;
+      const key = (h.isin && h.isin !== 'None') ? h.isin : h.name;
+      if (!cmap[key]) cmap[key] = { name: h.name, isin: h.isin||'', mv: 0, funds: [] };
+      cmap[key].mv += h.mv_eur || 0;
+      if (!cmap[key].funds.find(f => f.id === fund.id))
+        cmap[key].funds.push({ id: fund.id, color: fund.color, short: shortName });
+    });
+  });
+  window.TOP_COMPANIES = Object.values(cmap).sort((a,b) => b.mv - a.mv).slice(0, 25);
+})();
+
+function _cleanName(name) {
+  // Strip stock-type suffixes to get a clean search term
+  return name
+    .replace(/\s+(PLC|AG|SE|INC\.|INC|CORP|LTD|S\.A\.|SA|NV|BV|SPA|CO\.|CO|GRP|GROUP|HOLDING|HOLDINGS|INH\.|INH|NA|O\.N\.|ON|DL-?[\d,\.]+|EO[\s-][\d,\.]+|LS-?[\d,\.]+|SF\s*[\d,\.]+|CL\.[A-Z]|DL\s*[\d,\.]+)(\s.*)?$/gi, '')
+    .trim()
+    .split(/\s+/).slice(0, 3).join(' ');
+}
+
+function _escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function _fmtDate(s) {
+  if (!s) return '';
+  try {
+    const d = new Date(s);
+    return d.toLocaleDateString('de-AT',{day:'2-digit',month:'2-digit'}) + ' ' + d.toLocaleTimeString('de-AT',{hour:'2-digit',minute:'2-digit'});
+  } catch(e) { return ''; }
+}
+
+function _newsCard(item) {
+  const badges = item.funds.map(f =>
+    `<span style="background:${f.color}20;color:${f.color};border:1px solid ${f.color}40;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap">${_escHtml(f.short)}</span>`
+  ).join('');
+  return `<div class="card" style="padding:14px 16px">
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+    <span style="font-size:12px;font-weight:700;color:var(--text)">${_escHtml(item.company)}</span>
+    ${badges}
+    <span style="font-size:11px;color:var(--muted);margin-left:auto;white-space:nowrap">${item.source ? _escHtml(item.source)+' · ' : ''}${_fmtDate(item.pubDate)}</span>
+  </div>
+  <a href="${_escHtml(item.link)}" target="_blank" rel="noopener noreferrer"
+     style="font-size:14px;font-weight:500;color:var(--text);line-height:1.5;display:block;text-decoration:none"
+     onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text)'">${_escHtml(item.title)}</a>
+</div>`;
+}
+
+async function _fetchCompanyNews(company) {
+  const q = encodeURIComponent(_cleanName(company.name));
+  const rss = `https://news.google.com/rss/search?q=${q}&hl=de&gl=AT&ceid=AT:de`;
+  const url = `https://api.allorigins.win/get?url=${encodeURIComponent(rss)}`;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 9000);
+  try {
+    const resp = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(t);
+    if (!resp.ok) return [];
+    const json = await resp.json();
+    if (!json.contents) return [];
+    const xml = new DOMParser().parseFromString(json.contents, 'text/xml');
+    return Array.from(xml.querySelectorAll('item')).slice(0, 3).map(el => ({
+      title: el.querySelector('title')?.textContent?.replace(/<[^>]+>/g,'').trim() || '',
+      link: el.querySelector('link')?.textContent?.trim() || '#',
+      pubDate: el.querySelector('pubDate')?.textContent || '',
+      source: el.querySelector('source')?.textContent?.trim() || '',
+      company: company.name,
+      funds: company.funds,
+    })).filter(i => i.title);
+  } catch(e) { clearTimeout(t); return []; }
+}
+
+let _newsLoaded = false, _newsTimer = null, _newsRunning = false;
+async function loadNews(force) {
+  if (_newsRunning) return;
+  if (_newsLoaded && !force) return;
+  _newsRunning = true; _newsLoaded = true;
+  if (_newsTimer) { clearTimeout(_newsTimer); _newsTimer = null; }
+
+  const feed   = document.getElementById('news-feed');
+  const status = document.getElementById('news-status');
+  const bar    = document.getElementById('news-progress-bar');
+  const wrap   = document.getElementById('news-progress-wrap');
+  const btn    = document.getElementById('news-refresh-btn');
+  if (!feed) { _newsRunning = false; return; }
+
+  feed.innerHTML = '<div class="placeholder" style="padding:32px">Lade Nachrichten…</div>';
+  if (wrap) wrap.style.display = '';
+  if (bar)  bar.style.width = '0%';
+  if (btn)  btn.disabled = true;
+
+  const allItems = [];
+  const total = window.TOP_COMPANIES.length;
+
+  for (let i = 0; i < total; i++) {
+    const co = window.TOP_COMPANIES[i];
+    if (status) status.textContent = `Lade News: ${_cleanName(co.name)} (${i+1}/${total})…`;
+    if (bar) bar.style.width = ((i + 1) / total * 100).toFixed(0) + '%';
+
+    const items = await _fetchCompanyNews(co);
+    allItems.push(...items);
+
+    // Re-render sorted by date after each company
+    const sorted = [...allItems].sort((a,b) => new Date(b.pubDate||0) - new Date(a.pubDate||0));
+    feed.innerHTML = sorted.slice(0, 60).map(_newsCard).join('') ||
+      '<div class="placeholder">Keine Artikel gefunden</div>';
+
+    await new Promise(r => setTimeout(r, 350)); // throttle proxy
+  }
+
+  const n = allItems.length;
+  if (status) status.textContent = `${n} Artikel aus ${total} Unternehmen · Stand: ${new Date().toLocaleTimeString('de-AT')} · Auto-Update in 30 Min.`;
+  if (wrap) wrap.style.display = 'none';
+  if (btn)  btn.disabled = false;
+  _newsRunning = false;
+  _newsTimer = setTimeout(() => { _newsLoaded = false; loadNews(false); }, 30 * 60 * 1000);
+}
+
+document.querySelectorAll('.tab').forEach(t => {
+  if (t.dataset.tab === 'news') t.addEventListener('click', () => loadNews(false));
+});
 </script>'''
     return html
 
