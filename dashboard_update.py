@@ -99,32 +99,39 @@ def graph_get_bytes(access_token, path):
 
 # ─── Mail + Attachment suchen ─────────────────────────────────────────────────
 def find_latest_emails(access_token):
-    """Holt die neuesten Mails je Fond (nach Subject-Keyword)."""
-    # Letzten 50 Mails holen (ohne $filter, client-side filtern nach Sender)
+    """Holt die neuesten Mails je Fond — INVENTARBLATT (NAV) + INVENTARLISTE (Holdings)."""
     path = (
         "/me/messages"
-        "?$top=50"
+        "?$top=100"
         "&$orderby=receivedDateTime desc"
         "&$select=id,subject,receivedDateTime,hasAttachments,from"
     )
     data = graph_get(access_token, path)
     messages = data.get("value", [])
-    print(f"📧 {len(messages)} Mails insgesamt geladen")
+    print(f"📧 {len(messages)} Mails geladen, filtere nach {SENDER_EMAIL}")
 
-    # Nach Sender + Fund-ID filtern
-    fund_mails = {}
+    # Pro Fund beide Mail-Typen separat merken
+    fund_mails = {}  # {fid: {"blatt": msg, "liste": msg}}
     for msg in messages:
         sender = msg.get("from", {}).get("emailAddress", {}).get("address", "").lower()
         subj   = msg.get("subject", "")
         if sender != SENDER_EMAIL.lower():
             continue
+        subj_up = subj.upper()
         for fund in FUNDS:
             fid = fund["id"]
-            if fid in subj and fid not in fund_mails:
-                fund_mails[fid] = msg
-                print(f"  → Fund {fid}: {subj[:60]} ({msg['receivedDateTime'][:10]})")
+            if fid not in subj:
+                continue
+            if fid not in fund_mails:
+                fund_mails[fid] = {"blatt": None, "liste": None}
+            if "INVENTARBLATT" in subj_up and fund_mails[fid]["blatt"] is None:
+                fund_mails[fid]["blatt"] = msg
+                print(f"  📋 BLATT {fid}: {subj[:55]} ({msg['receivedDateTime'][:10]})")
+            elif "INVENTARLISTE" in subj_up and fund_mails[fid]["liste"] is None:
+                fund_mails[fid]["liste"] = msg
+                print(f"  📊 LISTE {fid}: {subj[:55]} ({msg['receivedDateTime'][:10]})")
 
-    print(f"  Gefunden: {list(fund_mails.keys())}")
+    print(f"  Gefunden: { {k: {t: bool(v) for t,v in d.items()} for k,d in fund_mails.items()} }")
     return fund_mails
 
 
@@ -694,7 +701,7 @@ tr:hover td {{ background: var(--surface2); }}
 
     for f in funds_data:
         ytd = f.get("perf_ytd", 0) or 0
-        nav_ps = f.get("nav_per_share")
+        nav_ps = f.get("nav_per_share") or 0
         nav_ps_prev = f.get("nav_per_share_prev")
         day_chg = ""
         if nav_ps and nav_ps_prev:
@@ -737,7 +744,7 @@ tr:hover td {{ background: var(--surface2); }}
         changes = f.get("changes", {})
         ph = f.get("price_history", [])
         nav = f.get("nav", 0)
-        nav_ps = f.get("nav_per_share", 0) or 0
+        nav_ps = float(f.get("nav_per_share") or 0)
         nav_ps_prev = f.get("nav_per_share_prev")
         day_chg_pct = ((nav_ps - nav_ps_prev) / nav_ps_prev * 100) if nav_ps and nav_ps_prev else None
         ytd = f.get("perf_ytd", 0) or 0
@@ -1578,34 +1585,54 @@ def main():
     # 4. Pro Fund Excel laden + parsen
     funds_data = []
     for fund_meta in FUNDS:
-        fid  = fund_meta["id"]
-        mail = fund_mails.get(fid)
+        fid        = fund_meta["id"]
+        mail_entry = fund_mails.get(fid, {})
+        mail_blatt = mail_entry.get("blatt")
+        mail_liste = mail_entry.get("liste")
 
-        if not mail:
+        if not mail_blatt and not mail_liste:
             print(f"⚠️  Keine Mail für Fund {fid} gefunden!")
-            # Fallback: prev_data verwenden
             prev_fund = prev_data.get(fid, {})
             if prev_fund:
                 print(f"   → Verwende gestrige Daten für {fid}")
                 funds_data.append({**fund_meta, **prev_fund, "changes": {}})
             continue
 
-        print(f"\n📥 Fund {fid}: {mail['subject'][:60]}")
+        fund_parsed = {}
 
-        # Attachment herunterladen
-        xlsx_bytes, filename = download_attachment(access_token, mail["id"], ".xlsx")
-        if not xlsx_bytes:
-            print(f"   ❌ Kein Excel-Anhang für {fid}")
-            continue
+        # INVENTARBLATT → NAV, Preis, YTD, FY
+        if mail_blatt:
+            print(f"\n📋 Fund {fid} BLATT: {mail_blatt['subject'][:55]}")
+            xlsx_bytes, filename = download_attachment(access_token, mail_blatt["id"], ".xlsx")
+            if xlsx_bytes:
+                print(f"   Parsing {filename}…")
+                try:
+                    blatt_data = parse_excel(xlsx_bytes, fid)
+                    fund_parsed.update(blatt_data)
+                except Exception as e:
+                    print(f"   ❌ BLATT Parse-Fehler: {e}")
+                    traceback.print_exc()
 
-        # Excel parsen
-        print(f"   Parsing {filename}…")
-        try:
-            fund_parsed = parse_excel(xlsx_bytes, fid)
-        except Exception as e:
-            print(f"   ❌ Parse-Fehler für {fid}: {e}")
-            traceback.print_exc()
-            continue
+        # INVENTARLISTE → Holdings, Länder, Währungen, Sektoren
+        mail_for_holdings = mail_liste or mail_blatt  # Fallback auf BLATT wenn keine LISTE
+        if mail_for_holdings:
+            print(f"\n📊 Fund {fid} LISTE: {mail_for_holdings['subject'][:55]}")
+            xlsx_bytes, filename = download_attachment(access_token, mail_for_holdings["id"], ".xlsx")
+            if xlsx_bytes:
+                print(f"   Parsing {filename}…")
+                try:
+                    liste_data = parse_excel(xlsx_bytes, fid)
+                    # Merge: LISTE-Daten überschreiben nur Holdings/Allokation, nicht NAV
+                    for key in ["holdings", "countries", "currencies", "sectors"]:
+                        if key in liste_data:
+                            fund_parsed[key] = liste_data[key]
+                    # NAV aus BLATT bevorzugen — nur übernehmen wenn noch nicht gesetzt
+                    for key in ["nav", "nav_per_share", "shares", "perf_ytd", "perf_fy", "report_date"]:
+                        if key not in fund_parsed and key in liste_data:
+                            fund_parsed[key] = liste_data[key]
+                except Exception as e:
+                    print(f"   ❌ LISTE Parse-Fehler: {e}")
+                    traceback.print_exc()
 
         # Vortags-Preis aus prev_data
         prev_fund = prev_data.get(fid, {})
