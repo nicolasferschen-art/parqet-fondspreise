@@ -10,27 +10,71 @@
     "countries": [
       {
         "label": "Austria",
-        "value": 28.06
+        "value": 28.78
       },
       {
-        "label": "Austria",
-        "value": 0.26
+        "label": "United States",
+        "value": 25.27
       },
       {
-        "label": "Belgium",
-        "value": 0.29
+        "label": "Germany",
+        "value": 11.74
+      },
+      {
+        "label": "Ireland",
+        "value": 6.83
+      },
+      {
+        "label": "Switzerland",
+        "value": 5.37
+      },
+      {
+        "label": "Italy",
+        "value": 4.26
+      },
+      {
+        "label": "France",
+        "value": 2.95
+      },
+      {
+        "label": "United Kingdom",
+        "value": 2.89
+      },
+      {
+        "label": "Japan",
+        "value": 2.66
+      },
+      {
+        "label": "Republic of Korea",
+        "value": 1.75
+      },
+      {
+        "label": "Sweden",
+        "value": 1.62
+      },
+      {
+        "label": "Netherlands",
+        "value": 1.1
+      },
+      {
+        "label": "Spain",
+        "value": 0.78
       },
       {
         "label": "Canada",
-        "value": 0.74
+        "value": 0.75
+      },
+      {
+        "label": "Norway",
+        "value": 0.7
+      },
+      {
+        "label": "Singapore",
+        "value": 0.7
       },
       {
         "label": "Cayman Islands",
-        "value": 0.44
-      },
-      {
-        "label": "Cayman Islands",
-        "value": 0.16
+        "value": 0.6
       },
       {
         "label": "Denmark",
@@ -38,95 +82,23 @@
       },
       {
         "label": "Finland",
-        "value": 0.35
+        "value": 0.36
       },
       {
-        "label": "France",
-        "value": 2.9
-      },
-      {
-        "label": "Germany",
-        "value": 11.55
-      },
-      {
-        "label": "Ireland",
-        "value": 0.37
-      },
-      {
-        "label": "Ireland",
-        "value": 6.35
+        "label": "Belgium",
+        "value": 0.3
       },
       {
         "label": "Israel",
-        "value": 0.18
-      },
-      {
-        "label": "Italy",
-        "value": 4.19
-      },
-      {
-        "label": "Japan",
-        "value": 2.62
+        "value": 0.19
       },
       {
         "label": "Jersey",
         "value": 0.01
       },
       {
-        "label": "Netherlands",
-        "value": 1.04
-      },
-      {
-        "label": "Netherlands",
-        "value": 0.05
-      },
-      {
-        "label": "Norway",
-        "value": 0.69
-      },
-      {
-        "label": "Republic of Korea",
-        "value": 1.72
-      },
-      {
         "label": "Russian Federation",
-        "value": 5551.21
-      },
-      {
-        "label": "Singapore",
-        "value": 0.69
-      },
-      {
-        "label": "Spain",
-        "value": 0.77
-      },
-      {
-        "label": "Sweden",
-        "value": 1.6
-      },
-      {
-        "label": "Switzerland",
-        "value": 5.09
-      },
-      {
-        "label": "Switzerland",
-        "value": 0.2
-      },
-      {
-        "label": "United Kingdom",
-        "value": 1.03
-      },
-      {
-        "label": "United Kingdom",
-        "value": 1.7
-      },
-      {
-        "label": "United Kingdom",
-        "value": 0.12
-      },
-      {
-        "label": "United States",
-        "value": 24.87
+        "value": 0.0
       }
     ],
     "currencies": [
@@ -173,20 +145,152 @@
     ],
     "sectors": [
       {
-        "label": "509",
-        "value": 0.99
+        "label": "Company-related services",
+        "value": 17.7
       },
       {
-        "label": "511",
-        "value": 96.08
+        "label": "Prod. of dev. f. el. prod.& dist.",
+        "value": 14.71
       },
       {
-        "label": "512",
+        "label": "Lending",
+        "value": 12.76
+      },
+      {
+        "label": "Prod. of chemicals & chem.products",
+        "value": 6.18
+      },
+      {
+        "label": "Data proc.& databases",
+        "value": 4.74
+      },
+      {
+        "label": "Banking & insurance auxiliary activ",
+        "value": 4.74
+      },
+      {
+        "label": "TV, radio & tel.",
+        "value": 3.95
+      },
+      {
+        "label": "Energy supply",
+        "value": 3.92
+      },
+      {
+        "label": "Retail trade (excl. automobiles)",
+        "value": 3.63
+      },
+      {
+        "label": "Coking ,mineral oil processing",
+        "value": 2.67
+      },
+      {
+        "label": "Manufacture of food and beverages",
+        "value": 2.6
+      },
+      {
+        "label": "Sattelite comm.",
+        "value": 2.55
+      },
+      {
+        "label": "Mechanical engineering",
+        "value": 2.42
+      },
+      {
+        "label": "Real estate business",
+        "value": 1.84
+      },
+      {
+        "label": "Accomodation & Rest. bus.",
+        "value": 1.65
+      },
+      {
+        "label": "Trad.ag. & wh. (wo. m. t.)",
+        "value": 1.59
+      },
+      {
+        "label": "Prod. of motor veh.& motor v. p.",
+        "value": 1.57
+      },
+      {
+        "label": "Building industry",
+        "value": 1.51
+      },
+      {
+        "label": "Insurance",
+        "value": 1.48
+      },
+      {
+        "label": "Medical, electric measuring, optical",
+        "value": 1.33
+      },
+      {
+        "label": "Glass,non-metallic mineral products",
+        "value": 1.22
+      },
+      {
+        "label": "Office machinery, computers",
+        "value": 1.05
+      },
+      {
+        "label": "Tobacco processing",
+        "value": 0.97
+      },
+      {
+        "label": "Metall - producers",
+        "value": 0.56
+      },
+      {
+        "label": "Paper and paperboard",
+        "value": 0.54
+      },
+      {
+        "label": "Culture, sports and ent.",
+        "value": 0.44
+      },
+      {
+        "label": "Air traffic",
+        "value": 0.4
+      },
+      {
+        "label": "Travel agcs, transp supptng activit.",
+        "value": 0.23
+      },
+      {
+        "label": "Leather production and processing",
+        "value": 0.23
+      },
+      {
+        "label": "Other mining & quarrying",
+        "value": 0.19
+      },
+      {
+        "label": "Publishing, printing",
+        "value": 0.18
+      },
+      {
+        "label": "Health and social security services",
         "value": 0.17
       },
       {
-        "label": "931",
-        "value": 1.17
+        "label": "Misc. services",
+        "value": 0.09
+      },
+      {
+        "label": "Prod. of latex & PVC products",
+        "value": 0.09
+      },
+      {
+        "label": "Metal production and processing",
+        "value": 0.08
+      },
+      {
+        "label": "Clothing",
+        "value": 0.02
+      },
+      {
+        "label": "Extraction of petroleum & nat. gas",
+        "value": 0.0
       }
     ],
     "nav_per_share_prev": null,
@@ -3507,132 +3611,100 @@
     "perf_fy": 15.013279,
     "countries": [
       {
-        "label": "Austria",
-        "value": 3.19
-      },
-      {
-        "label": "Austria",
-        "value": 0.12
-      },
-      {
-        "label": "Belgium",
-        "value": 0.81
-      },
-      {
-        "label": "Bermuda",
-        "value": 0.49
-      },
-      {
-        "label": "Canada",
-        "value": 0.75
-      },
-      {
-        "label": "Cayman Islands",
-        "value": 0.04
-      },
-      {
-        "label": "Cayman Islands",
-        "value": 0.14
-      },
-      {
-        "label": "Curacao",
-        "value": 0.11
-      },
-      {
-        "label": "Denmark",
-        "value": 0.39
-      },
-      {
-        "label": "Finland",
-        "value": 0.89
-      },
-      {
-        "label": "France",
-        "value": 5.25
+        "label": "United States",
+        "value": 37.41
       },
       {
         "label": "Germany",
-        "value": 26.29
+        "value": 26.86
+      },
+      {
+        "label": "France",
+        "value": 5.36
+      },
+      {
+        "label": "United Kingdom",
+        "value": 4.28
+      },
+      {
+        "label": "Austria",
+        "value": 3.38
+      },
+      {
+        "label": "Taiwan",
+        "value": 3.11
+      },
+      {
+        "label": "Switzerland",
+        "value": 3.02
+      },
+      {
+        "label": "Japan",
+        "value": 2.7
       },
       {
         "label": "Ireland",
-        "value": 0.18
+        "value": 2.57
       },
       {
-        "label": "Ireland",
-        "value": 0.03
+        "label": "Italy",
+        "value": 2.06
       },
       {
-        "label": "Ireland",
-        "value": 2.31
+        "label": "Sweden",
+        "value": 1.48
+      },
+      {
+        "label": "Spain",
+        "value": 1.28
+      },
+      {
+        "label": "Netherlands",
+        "value": 1.27
+      },
+      {
+        "label": "Republic of Korea",
+        "value": 0.95
+      },
+      {
+        "label": "Finland",
+        "value": 0.91
+      },
+      {
+        "label": "Belgium",
+        "value": 0.83
+      },
+      {
+        "label": "Canada",
+        "value": 0.77
+      },
+      {
+        "label": "Bermuda",
+        "value": 0.5
+      },
+      {
+        "label": "Denmark",
+        "value": 0.4
       },
       {
         "label": "Israel",
         "value": 0.31
       },
       {
-        "label": "Italy",
-        "value": 2.02
-      },
-      {
-        "label": "Japan",
-        "value": 2.65
-      },
-      {
-        "label": "Netherlands",
-        "value": 1.05
-      },
-      {
-        "label": "Netherlands",
-        "value": 0.2
-      },
-      {
         "label": "Norway",
-        "value": 0.22
+        "value": 0.23
       },
       {
-        "label": "Republic of Korea",
-        "value": 0.93
+        "label": "Cayman Islands",
+        "value": 0.19
+      },
+      {
+        "label": "Curacao",
+        "value": 0.12
       },
       {
         "label": "Russian Federation",
         "value": 0.01
-      },
-      {
-        "label": "Spain",
-        "value": 1.25
-      },
-      {
-        "label": "Sweden",
-        "value": 1.45
-      },
-      {
-        "label": "Switzerland",
-        "value": 2.86
-      },
-      {
-        "label": "Switzerland",
-        "value": 0.1
-      },
-      {
-        "label": "Taiwan",
-        "value": 3.05
-      },
-      {
-        "label": "United Kingdom",
-        "value": 1.9
-      },
-      {
-        "label": "United Kingdom",
-        "value": 2.12
-      },
-      {
-        "label": "United Kingdom",
-        "value": 0.18
-      },
-      {
-        "label": "United States",
-        "value": 36.62
       }
     ],
     "currencies": [
@@ -3679,20 +3751,140 @@
     ],
     "sectors": [
       {
-        "label": "509",
+        "label": "Prod. of dev. f. el. prod.& dist.",
+        "value": 16.92
+      },
+      {
+        "label": "Company-related services",
+        "value": 14.81
+      },
+      {
+        "label": "Banking & insurance auxiliary activ",
+        "value": 13.0
+      },
+      {
+        "label": "Prod. of chemicals & chem.products",
+        "value": 8.93
+      },
+      {
+        "label": "Data proc.& databases",
+        "value": 6.94
+      },
+      {
+        "label": "Retail trade (excl. automobiles)",
+        "value": 6.07
+      },
+      {
+        "label": "Lending",
+        "value": 5.43
+      },
+      {
+        "label": "Mechanical engineering",
+        "value": 4.85
+      },
+      {
+        "label": "Sattelite comm.",
+        "value": 4.15
+      },
+      {
+        "label": "Manufacture of food and beverages",
+        "value": 2.12
+      },
+      {
+        "label": "Energy supply",
+        "value": 1.72
+      },
+      {
+        "label": "Prod. of motor veh.& motor v. p.",
+        "value": 1.44
+      },
+      {
+        "label": "Medical, electric measuring, optical",
+        "value": 1.37
+      },
+      {
+        "label": "Building industry",
+        "value": 1.37
+      },
+      {
+        "label": "Real estate business",
+        "value": 1.34
+      },
+      {
+        "label": "Trad.ag. & wh. (wo. m. t.)",
+        "value": 1.32
+      },
+      {
+        "label": "Insurance",
+        "value": 1.16
+      },
+      {
+        "label": "Accomodation & Rest. bus.",
+        "value": 0.96
+      },
+      {
+        "label": "Tobacco processing",
+        "value": 0.8
+      },
+      {
+        "label": "TV, radio & tel.",
+        "value": 0.77
+      },
+      {
+        "label": "Metall - producers",
+        "value": 0.74
+      },
+      {
+        "label": "Coking ,mineral oil processing",
+        "value": 0.59
+      },
+      {
+        "label": "Extraction of petroleum & nat. gas",
+        "value": 0.56
+      },
+      {
+        "label": "Leather production and processing",
+        "value": 0.49
+      },
+      {
+        "label": "Shipping",
+        "value": 0.45
+      },
+      {
+        "label": "Culture, sports and ent.",
         "value": 0.38
       },
       {
-        "label": "511",
-        "value": 96.37
+        "label": "Glass,non-metallic mineral products",
+        "value": 0.32
       },
       {
-        "label": "512",
-        "value": 0.33
+        "label": "Travel agcs, transp supptng activit.",
+        "value": 0.24
       },
       {
-        "label": "931",
-        "value": 0.81
+        "label": "Misc. motor vehicle prod.",
+        "value": 0.21
+      },
+      {
+        "label": "Paper and paperboard",
+        "value": 0.2
+      },
+      {
+        "label": "Autom. trade&repair, petrol stations",
+        "value": 0.13
+      },
+      {
+        "label": "Air traffic",
+        "value": 0.1
+      },
+      {
+        "label": "Prod. of latex & PVC products",
+        "value": 0.05
+      },
+      {
+        "label": "Health and social security services",
+        "value": 0.04
       }
     ],
     "nav_per_share_prev": null,
@@ -7205,96 +7397,80 @@
     "perf_fy": 8.898999,
     "countries": [
       {
-        "label": "Australia",
-        "value": 0.21
-      },
-      {
-        "label": "Austria",
-        "value": 1.04
-      },
-      {
-        "label": "Belgium",
-        "value": 0.62
-      },
-      {
-        "label": "Canada",
-        "value": 0.35
-      },
-      {
-        "label": "Denmark",
-        "value": 0.05
-      },
-      {
-        "label": "Finland",
-        "value": 2.12
-      },
-      {
-        "label": "France",
-        "value": 8.8
+        "label": "United States",
+        "value": 19.3
       },
       {
         "label": "Germany",
-        "value": 9.62
+        "value": 15.2
       },
       {
-        "label": "Ireland",
-        "value": 23.24
+        "label": "France",
+        "value": 13.9
       },
       {
-        "label": "Ireland",
-        "value": 0.98
+        "label": "United Kingdom",
+        "value": 10.35
       },
       {
-        "label": "Italy",
-        "value": 2.49
+        "label": "Netherlands",
+        "value": 9.75
       },
       {
         "label": "Japan",
-        "value": 3.49
-      },
-      {
-        "label": "Jersey",
-        "value": 0.46
-      },
-      {
-        "label": "Luxembourg",
-        "value": 11.62
-      },
-      {
-        "label": "Netherlands",
-        "value": 5.66
-      },
-      {
-        "label": "Netherlands",
-        "value": 0.51
-      },
-      {
-        "label": "Republic of Korea",
-        "value": 0.52
-      },
-      {
-        "label": "Spain",
-        "value": 2.88
-      },
-      {
-        "label": "Switzerland",
-        "value": 1.44
+        "value": 5.52
       },
       {
         "label": "Taiwan",
-        "value": 3.2800000000000002
+        "value": 5.18
       },
       {
-        "label": "United Kingdom",
-        "value": 0.9
+        "label": "Spain",
+        "value": 4.55
       },
       {
-        "label": "United Kingdom",
-        "value": 5.65
+        "label": "Italy",
+        "value": 3.93
       },
       {
-        "label": "United States",
-        "value": 12.21
+        "label": "Finland",
+        "value": 3.35
+      },
+      {
+        "label": "Switzerland",
+        "value": 2.27
+      },
+      {
+        "label": "Austria",
+        "value": 1.64
+      },
+      {
+        "label": "Ireland",
+        "value": 1.56
+      },
+      {
+        "label": "Belgium",
+        "value": 0.97
+      },
+      {
+        "label": "Republic of Korea",
+        "value": 0.83
+      },
+      {
+        "label": "Jersey",
+        "value": 0.73
+      },
+      {
+        "label": "Canada",
+        "value": 0.56
+      },
+      {
+        "label": "Australia",
+        "value": 0.33
+      },
+      {
+        "label": "Denmark",
+        "value": 0.09
       }
     ],
     "currencies": [
@@ -7329,24 +7505,92 @@
     ],
     "sectors": [
       {
-        "label": "509",
-        "value": 0.62
+        "label": "Company-related services",
+        "value": 22.86
       },
       {
-        "label": "511",
-        "value": 62.32
+        "label": "Prod. of dev. f. el. prod.& dist.",
+        "value": 17.32
       },
       {
-        "label": "512",
-        "value": 0.21
+        "label": "Banking & insurance auxiliary activ",
+        "value": 14.04
       },
       {
-        "label": "805",
-        "value": 34.86
+        "label": "Lending",
+        "value": 10.49
       },
       {
-        "label": "931",
-        "value": 0.14
+        "label": "Data proc.& databases",
+        "value": 6.87
+      },
+      {
+        "label": "Prod. of chemicals & chem.products",
+        "value": 5.72
+      },
+      {
+        "label": "Energy supply",
+        "value": 3.95
+      },
+      {
+        "label": "Medical, electric measuring, optical",
+        "value": 3.6
+      },
+      {
+        "label": "Sattelite comm.",
+        "value": 3.32
+      },
+      {
+        "label": "Mechanical engineering",
+        "value": 2.59
+      },
+      {
+        "label": "Retail trade (excl. automobiles)",
+        "value": 2.06
+      },
+      {
+        "label": "Trad.ag. & wh. (wo. m. t.)",
+        "value": 1.59
+      },
+      {
+        "label": "Manufacture of food and beverages",
+        "value": 0.97
+      },
+      {
+        "label": "Prod. of motor veh.& motor v. p.",
+        "value": 0.95
+      },
+      {
+        "label": "Insurance",
+        "value": 0.82
+      },
+      {
+        "label": "Coking ,mineral oil processing",
+        "value": 0.78
+      },
+      {
+        "label": "Other mining & quarrying",
+        "value": 0.76
+      },
+      {
+        "label": "TV, radio & tel.",
+        "value": 0.35
+      },
+      {
+        "label": "Coal and peat mining",
+        "value": 0.33
+      },
+      {
+        "label": "Health and social security services",
+        "value": 0.26
+      },
+      {
+        "label": "Real estate business",
+        "value": 0.22
+      },
+      {
+        "label": "Culture, sports and ent.",
+        "value": 0.16
       }
     ],
     "nav_per_share_prev": null,
