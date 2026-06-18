@@ -678,9 +678,10 @@ def build_price_history(nav_per_share, perf_ytd, perf_fy, nav_per_share_prev=Non
 
 
 # ─── Dashboard HTML generieren ────────────────────────────────────────────────
-def generate_html(funds_data, updated_at):
+def generate_html(funds_data, updated_at, nav_history=None):
     """Generiert das vollständige Dashboard-HTML."""
     data_json = json.dumps(funds_data, ensure_ascii=False, separators=(',', ':'))
+    nav_history_json = json.dumps(nav_history or {}, ensure_ascii=False, separators=(',', ':'))
 
     # Zahlenformatierung
     def fmt_eur(n, dec=2):
@@ -824,6 +825,8 @@ tr:hover td {{ background: var(--surface2); }}
 .bar-fill {{ height: 100%; border-radius: 6px; opacity: 0.85; }}
 .bar-val {{ width: 60px; text-align: right; font-size: 12px; color: var(--muted); flex-shrink: 0; }}
 
+.range-btn {{ background: var(--bg); border: 1px solid var(--border); color: var(--muted); padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all .15s; }}
+.range-btn:hover, .range-btn.active {{ background: var(--accent); color: white; border-color: var(--accent); }}
 .updated {{ font-size: 11px; color: var(--muted); }}
 
 /* Tooltips */
@@ -960,10 +963,32 @@ tr:hover td {{ background: var(--surface2); }}
 '''
         html += '</div>\n'
 
-        # NAV Sparkline
-        if ph:
-            html += '<div class="section-title">NAV Entwicklung</div>\n'
-            html += f'<div class="card"><div class="chart-wrap"><canvas id="chart-spark-{fid}"></canvas></div></div>\n'
+        # NAV Chart with date range
+        html += '<div class="section-title">NAV Entwicklung</div>\n'
+        today_iso = date.today().isoformat()
+        six_months_ago = date(date.today().year - (1 if date.today().month <= 6 else 0),
+                              ((date.today().month - 6 - 1) % 12) + 1, 1).isoformat() if True else ""
+        html += f'''<div class="card">
+  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+    <div style="display:flex;gap:8px;align-items:center">
+      <label style="font-size:12px;color:var(--muted);font-weight:600">Von</label>
+      <input type="date" id="from-{fid}" value="2025-10-01" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:8px;font-size:13px">
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <label style="font-size:12px;color:var(--muted);font-weight:600">Bis</label>
+      <input type="date" id="to-{fid}" value="{today_iso}" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:8px;font-size:13px">
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button onclick="setDateRange('{fid}','gy')" class="range-btn" id="btn-gy-{fid}">GJ</button>
+      <button onclick="setDateRange('{fid}','ytd')" class="range-btn" id="btn-ytd-{fid}">YTD</button>
+      <button onclick="setDateRange('{fid}','3m')" class="range-btn">3M</button>
+      <button onclick="setDateRange('{fid}','1m')" class="range-btn">1M</button>
+      <button onclick="setDateRange('{fid}','all')" class="range-btn">Gesamt</button>
+    </div>
+  </div>
+  <div class="chart-wrap" style="height:260px"><canvas id="chart-spark-{fid}"></canvas></div>
+</div>
+'''
 
         # Änderungen
         html += '<div class="section-title">Positionsänderungen (ggü. Vortag)</div>\n'
@@ -1145,34 +1170,40 @@ tr:hover td {{ background: var(--surface2); }}
     # ── Calculator Panel ────────────────────────────────────────────────────
     html += '<div class="panel" id="panel-calc">\n'
     html += '<div class="section-title">🧮 Performance-Rechner</div>\n'
-    html += '<div class="card" style="max-width:700px;margin-bottom:24px">\n'
-    html += '''<div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap">
-  <div>
-    <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Investitionsbetrag (€)</label>
-    <input type="number" id="calc-amount" value="10000" min="1" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:16px;width:160px">
+    html += f'''<div class="card" style="max-width:900px;margin-bottom:24px">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;align-items:end">
+    <div>
+      <label style="display:block;font-size:12px;color:var(--muted);font-weight:600;margin-bottom:6px">Investitionsbetrag (€)</label>
+      <input type="number" id="calc-amount" value="10000" min="1" oninput="calcPerf()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:16px;font-weight:600">
+    </div>
+    <div>
+      <label style="display:block;font-size:12px;color:var(--muted);font-weight:600;margin-bottom:6px">Von Datum</label>
+      <input type="date" id="calc-from" oninput="calcPerf()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px">
+    </div>
+    <div>
+      <label style="display:block;font-size:12px;color:var(--muted);font-weight:600;margin-bottom:6px">Bis Datum</label>
+      <input type="date" id="calc-to" oninput="calcPerf()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:8px;font-size:14px">
+    </div>
+    <div>
+      <label style="display:block;font-size:12px;color:var(--muted);font-weight:600;margin-bottom:6px">Schnellauswahl</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button onclick="setCalcRange('ytd')" class="range-btn" id="calc-btn-ytd">YTD</button>
+        <button onclick="setCalcRange('gy')" class="range-btn" id="calc-btn-gy">GJ</button>
+        <button onclick="setCalcRange('1y')" class="range-btn">1J</button>
+        <button onclick="setCalcRange('all')" class="range-btn">Gesamt</button>
+      </div>
+    </div>
   </div>
-  <div>
-    <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Zeitraum</label>
-    <select id="calc-period" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:14px">
-      <option value="ytd">YTD (01.01.–heute)</option>
-      <option value="gy">Geschäftsjahr (01.10.–heute)</option>
-      <option value="day">Gestern→Heute</option>
-    </select>
-  </div>
-  <button onclick="calcPerf()" style="background:var(--blue);color:#000;border:none;padding:9px 20px;border-radius:6px;cursor:pointer;font-weight:700;font-size:14px">Berechnen</button>
 </div>
+<div class="grid-3" id="calc-results">
 '''
-    html += '</div>\n'
-    html += '<div class="grid-3" id="calc-results">\n'
-
     for f in funds_data:
         fid = f["id"]
         html += f'''<div class="card" id="calc-card-{fid}">
   <h3 style="margin-bottom:12px">{f['name']}</h3>
-  <div id="calc-detail-{fid}" style="color:var(--muted);font-size:13px">→ Betrag eingeben und berechnen</div>
+  <div id="calc-detail-{fid}" style="color:var(--muted);font-size:13px">→ Zeitraum wählen</div>
 </div>
 '''
-
     html += '</div>\n'
     html += '<div class="section-title" style="margin-top:32px">Normalisierter Verlauf</div>\n'
     html += '<div class="card"><div class="chart-wrap tall"><canvas id="chart-calc-perf"></canvas></div></div>\n'
@@ -1193,6 +1224,7 @@ tr:hover td {{ background: var(--surface2); }}
 
     # ── Scripts ─────────────────────────────────────────────────────────────
     html += f'<script>\nconst FUNDS_DATA = {data_json};\n'
+    html += f'const NAV_HISTORY = {nav_history_json};\n'
     html += '''
 const PAGE_SIZE = 25;
 const tableState = {};
@@ -1261,28 +1293,68 @@ new Chart(document.getElementById('cov-aum'), {
 FUNDS_DATA.forEach(fund => {
   const fid = fund.id;
 
-  // Sparkline
-  if (fund.price_history && fund.price_history.length) {
+  // NAV Chart with history + date range
+  const sparkCharts = {};
+  function renderSparkChart(fid, fromDate, toDate) {
+    const fund = FUNDS_DATA.find(f => f.id === fid);
+    if (!fund) return;
+    let hist = [...(NAV_HISTORY[fid] || [])];
+    // Merge with price_history BVI points as seeds
+    (fund.price_history || []).forEach(p => {
+      if (!hist.find(h => h.date === p.date)) hist.push({date: p.date, price: p.price});
+    });
+    hist.sort((a,b) => a.date < b.date ? -1 : 1);
+    if (fromDate) hist = hist.filter(p => p.date >= fromDate);
+    if (toDate)   hist = hist.filter(p => p.date <= toDate);
+    if (!hist.length) return;
     const ctx = document.getElementById('chart-spark-' + fid);
-    if (ctx) new Chart(ctx, {
+    if (!ctx) return;
+    if (sparkCharts[fid]) sparkCharts[fid].destroy();
+    sparkCharts[fid] = new Chart(ctx, {
       type: 'line',
       data: {
-        labels: fund.price_history.map(p => p.label),
+        labels: hist.map(p => p.date),
         datasets: [{
           label: 'Rücknahmepreis €',
-          data: fund.price_history.map(p => p.price),
+          data: hist.map(p => p.price),
           borderColor: fund.color,
-          backgroundColor: fund.color + '22',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 4,
+          backgroundColor: fund.color + '18',
+          fill: true, tension: 0.3,
+          pointRadius: hist.length > 30 ? 0 : 4,
           pointBackgroundColor: fund.color,
         }]
       },
-      options: {responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
-        scales:{y:{ticks:{callback:v=>v.toFixed(2)+' €'}}}}
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{x:{ticks:{maxTicksLimit:8, maxRotation:0}}, y:{ticks:{callback:v=>v.toFixed(2)+' €'}}}
+      }
     });
   }
+  function setDateRange(fid, range) {
+    const today = new Date();
+    let from;
+    if (range==='ytd')     from = new Date(today.getFullYear(),0,1);
+    else if (range==='gy') from = new Date(today.getMonth()<9 ? today.getFullYear()-1 : today.getFullYear(),9,1);
+    else if (range==='3m') from = new Date(today.getFullYear(), today.getMonth()-3, today.getDate());
+    else if (range==='1m') from = new Date(today.getFullYear(), today.getMonth()-1, today.getDate());
+    else from = null;
+    const fromStr = from ? from.toISOString().slice(0,10) : '2000-01-01';
+    const toStr = today.toISOString().slice(0,10);
+    const fi = document.getElementById('from-'+fid);
+    const ti = document.getElementById('to-'+fid);
+    if (fi) fi.value = fromStr;
+    if (ti) ti.value = toStr;
+    renderSparkChart(fid, fromStr, toStr);
+  }
+  document.getElementById('from-'+fid)?.addEventListener('change', () => {
+    renderSparkChart(fid, document.getElementById('from-'+fid).value, document.getElementById('to-'+fid).value);
+  });
+  document.getElementById('to-'+fid)?.addEventListener('change', () => {
+    renderSparkChart(fid, document.getElementById('from-'+fid).value, document.getElementById('to-'+fid).value);
+  });
+  // Init with GJ range
+  setDateRange(fid, 'gy');
 
   // Currency donut
   if (fund.currencies && fund.currencies.length) {
@@ -1514,91 +1586,112 @@ function exportCSV(fid) {
 
 // ── Performance Calculator ─────────────────────────────────────────────────
 let calcChart = null;
+function setCalcRange(range) {
+  const today = new Date();
+  let from;
+  if (range==='ytd')     from = new Date(today.getFullYear(),0,1);
+  else if (range==='gy') from = new Date(today.getMonth()<9 ? today.getFullYear()-1 : today.getFullYear(),9,1);
+  else if (range==='1y') from = new Date(today.getFullYear()-1, today.getMonth(), today.getDate());
+  else from = null;
+  const fi = document.getElementById('calc-from');
+  const ti = document.getElementById('calc-to');
+  if (fi) fi.value = from ? from.toISOString().slice(0,10) : '2020-01-01';
+  if (ti) ti.value = today.toISOString().slice(0,10);
+  calcPerf();
+}
 function calcPerf() {
-  const amount = parseFloat(document.getElementById('calc-amount').value) || 10000;
-  const period = document.getElementById('calc-period').value;
+  const amount  = parseFloat(document.getElementById('calc-amount')?.value) || 10000;
+  const fromDate = document.getElementById('calc-from')?.value || '';
+  const toDate   = document.getElementById('calc-to')?.value   || '';
   const datasets = [];
 
   FUNDS_DATA.forEach(fund => {
     const el = document.getElementById('calc-detail-' + fund.id);
     if (!el) return;
 
-    const ph = fund.price_history || [];
-    let startPrice = null, endPrice = null, startLabel = '';
+    // Merge NAV_HISTORY with price_history seeds
+    let hist = [...(NAV_HISTORY[fund.id] || [])];
+    (fund.price_history || []).forEach(p => {
+      if (!hist.find(h => h.date === p.date)) hist.push({date: p.date, price: p.price});
+    });
+    hist.sort((a,b) => a.date < b.date ? -1 : 1);
 
-    if (period === 'ytd') {
-      const s = ph.find(p => p.date && p.date.startsWith(new Date().getFullYear() + '-01'));
-      const e = ph[ph.length - 1];
-      startPrice = s?.price; endPrice = e?.price; startLabel = s?.label || '01.01.';
-    } else if (period === 'gy') {
-      const fy = new Date().getFullYear();
-      const fyY = new Date().getMonth() < 9 ? fy - 1 : fy;
-      const s = ph.find(p => p.date && p.date.startsWith(fyY + '-10'));
-      const e = ph[ph.length - 1];
-      startPrice = s?.price; endPrice = e?.price; startLabel = s?.label || '01.10.';
-    } else { // day
-      if (ph.length >= 2) {
-        startPrice = ph[ph.length-2].price;
-        endPrice   = ph[ph.length-1].price;
-        startLabel = ph[ph.length-2].label;
-      }
-    }
-
-    if (!startPrice || !endPrice) {
+    // Find closest prices
+    const afterFrom = hist.filter(p => !fromDate || p.date >= fromDate);
+    const beforeTo  = hist.filter(p => !toDate   || p.date <= toDate);
+    if (!afterFrom.length || !beforeTo.length) {
       el.innerHTML = '<span style="color:var(--muted)">Keine Daten für diesen Zeitraum</span>';
       return;
     }
+    const startEntry = afterFrom[0];
+    const endEntry   = beforeTo[beforeTo.length-1];
+    if (startEntry.date === endEntry.date) {
+      el.innerHTML = '<span style="color:var(--muted)">Start = Ende, bitte anderen Zeitraum wählen</span>';
+      return;
+    }
 
+    const startPrice = startEntry.price, endPrice = endEntry.price;
     const units   = amount / startPrice;
     const current = units * endPrice;
     const gain    = current - amount;
     const retPct  = (endPrice - startPrice) / startPrice * 100;
-    const cls     = gain >= 0 ? 'pos' : 'neg';
-    const s       = gain >= 0 ? '+' : '';
+    // Annualized return
+    const days    = (new Date(endEntry.date) - new Date(startEntry.date)) / 86400000;
+    const annRet  = days > 0 ? (Math.pow(endPrice/startPrice, 365/days) - 1) * 100 : 0;
+    const cls  = gain >= 0 ? 'pos' : 'neg';
+    const s    = gain >= 0 ? '+' : '';
 
     el.innerHTML = `
+      <div style="margin-bottom:12px;padding:12px;background:var(--surface2);border-radius:8px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">${startEntry.date} → ${endEntry.date}</div>
+        <div style="font-size:24px;font-weight:700" class="${cls}">${s}${fmtEur(gain)} €</div>
+        <div style="font-size:13px;color:var(--muted)">aus ${fmtEur(amount)} € → <strong style="color:var(--text)">${fmtEur(current)} €</strong></div>
+      </div>
       <table style="width:100%;font-size:13px">
-        <tr><td style="color:var(--muted)">Einstiegskurs (${startLabel})</td><td style="text-align:right">${startPrice.toFixed(4)} €</td></tr>
-        <tr><td style="color:var(--muted)">Heutiger Kurs</td><td style="text-align:right">${endPrice.toFixed(4)} €</td></tr>
-        <tr><td style="color:var(--muted)">Anteile</td><td style="text-align:right">${units.toFixed(4)}</td></tr>
-        <tr><td style="color:var(--muted)">Rendite</td><td style="text-align:right;font-weight:700" class="${cls}">${s}${retPct.toFixed(2)}%</td></tr>
-        <tr><td style="color:var(--muted)">Aktueller Wert</td><td style="text-align:right;font-weight:700">${fmtEur(current)} €</td></tr>
-        <tr><td style="color:var(--muted)">Gewinn/Verlust</td><td style="text-align:right;font-weight:700" class="${cls}">${s}${fmtEur(gain)} €</td></tr>
+        <tr><td style="color:var(--muted);padding:4px 0">Einstiegskurs</td><td style="text-align:right;font-weight:600">${startPrice.toFixed(4)} €</td></tr>
+        <tr><td style="color:var(--muted);padding:4px 0">Endkurs</td><td style="text-align:right;font-weight:600">${endPrice.toFixed(4)} €</td></tr>
+        <tr><td style="color:var(--muted);padding:4px 0">Anteile</td><td style="text-align:right">${units.toFixed(3)}</td></tr>
+        <tr><td style="color:var(--muted);padding:4px 0">Gesamtrendite</td><td style="text-align:right;font-weight:700" class="${cls}">${s}${retPct.toFixed(2)}%</td></tr>
+        <tr><td style="color:var(--muted);padding:4px 0">Annualisiert</td><td style="text-align:right" class="${cls}">${s}${annRet.toFixed(2)}% p.a.</td></tr>
+        <tr><td style="color:var(--muted);padding:4px 0">Zeitraum</td><td style="text-align:right">${Math.round(days)} Tage</td></tr>
       </table>
     `;
 
-    // Normalisierter Verlauf (nur für YTD/GJ sinnvoll)
-    if (ph.length >= 2) {
-      const base = ph[0].price;
+    if (hist.length >= 2) {
+      const base = startPrice;
       datasets.push({
         label: fund.name,
-        data: ph.map(p => ({ x: p.label, y: (p.price - base) / base * 100 })),
+        data: hist.filter(p => (!fromDate||p.date>=fromDate)&&(!toDate||p.date<=toDate))
+                  .map(p => ({x: p.date, y: (p.price-base)/base*100})),
         borderColor: fund.color,
         backgroundColor: 'transparent',
         tension: 0.3,
-        pointRadius: 4,
+        pointRadius: 0,
+        borderWidth: 2,
       });
     }
   });
 
-  // Update comparison chart
   const ctx = document.getElementById('chart-calc-perf');
   if (ctx) {
     if (calcChart) calcChart.destroy();
-    const allLabels = [...new Set(FUNDS_DATA.flatMap(f => (f.price_history||[]).map(p => p.label)))];
     calcChart = new Chart(ctx, {
       type: 'line',
-      data: { labels: allLabels, datasets },
+      data: { datasets },
       options: {
         responsive: true, maintainAspectRatio: false,
+        parsing: false,
         plugins: { legend: { position: 'top' }, tooltip: { mode: 'index' } },
-        scales: { y: { ticks: { callback: v => v.toFixed(2) + '%' } } }
+        scales: {
+          x: { type: 'time', time: { unit: 'month' }, ticks: { maxTicksLimit: 10 } },
+          y: { ticks: { callback: v => v.toFixed(1)+'%' } }
+        }
       }
     });
   }
 }
-// Auto-calculate on load
-setTimeout(calcPerf, 500);
+// Init calculator with YTD
+setTimeout(() => setCalcRange('ytd'), 600);
 </script>
 </body>
 </html>'''
@@ -1823,6 +1916,22 @@ def load_prev_data(token, repo, branch="main"):
         return {}
 
 
+def load_nav_history(token, repo, branch="main"):
+    """Liest akkumulierte NAV-Historie aus docs/nav_history.json."""
+    try:
+        req = Request(
+            f"https://api.github.com/repos/{repo}/contents/docs/nav_history.json?ref={branch}",
+            headers={"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"},
+        )
+        with urlopen(req) as resp:
+            meta = json.loads(resp.read())
+            content = base64.b64decode(meta["content"]).decode()
+            return json.loads(content)
+    except Exception as e:
+        print(f"  ℹ️  Keine nav_history.json ({e}), starte frisch")
+        return {}
+
+
 # ─── Main ─────────────────────────────────────────────────────────────────────
 def main():
     github_token = os.environ.get("GITHUB_TOKEN", "")
@@ -1835,10 +1944,12 @@ def main():
     # 1. Token holen
     access_token = get_access_token()
 
-    # 2. Prev data laden
+    # 2. Prev data + NAV-Historie laden
     prev_data = {}
+    nav_history = {}
     if github_token and github_repo:
         prev_data = load_prev_data(github_token, github_repo)
+        nav_history = load_nav_history(github_token, github_repo)
 
     # 3. Mails finden
     fund_mails = find_latest_emails(access_token)
@@ -1929,10 +2040,33 @@ def main():
         print("❌ Keine Daten gefunden. Abbruch.")
         sys.exit(1)
 
+    # 4b. NAV-Historie aktualisieren
+    today_str = date.today().isoformat()
+    for fund in funds_data:
+        fid = fund["id"]
+        price = fund.get("nav_per_share")
+        nav   = fund.get("nav")
+        if price and price > 0:
+            if fid not in nav_history:
+                nav_history[fid] = []
+            # BVI-Seed-Punkte hinzufügen (GJ-Start, YTD-Start)
+            for ph_point in fund.get("price_history", []):
+                if not any(h["date"] == ph_point["date"] for h in nav_history[fid]):
+                    nav_history[fid].append({"date": ph_point["date"], "price": ph_point["price"]})
+            # Heutigen Datenpunkt hinzufügen
+            if not any(h["date"] == today_str for h in nav_history[fid]):
+                nav_history[fid].append({
+                    "date": today_str,
+                    "price": round(price, 4),
+                    "nav": round(nav, 2) if nav else None,
+                })
+            nav_history[fid].sort(key=lambda x: x["date"])
+            print(f"  📈 {fid} NAV-Historie: {len(nav_history[fid])} Punkte")
+
     # 5. Dashboard generieren
     updated_at = datetime.now().strftime("%d.%m.%Y %H:%M UTC")
     print(f"\n🔨 Generiere Dashboard ({updated_at})…")
-    html = generate_html(funds_data, updated_at)
+    html = generate_html(funds_data, updated_at, nav_history=nav_history)
     data_json = json.dumps(
         [{k: v for k, v in f.items() if k != "holdings"} | {"holdings": f.get("holdings", [])}
          for f in funds_data],
@@ -1955,6 +2089,9 @@ def main():
         git_push_file(github_token, github_repo, "docs/prev_data.json",
                      json.dumps(prev_save, ensure_ascii=False).encode("utf-8"),
                      f"Prev data {today_str}")
+        git_push_file(github_token, github_repo, "docs/nav_history.json",
+                     json.dumps(nav_history, ensure_ascii=False).encode("utf-8"),
+                     f"NAV history {today_str}")
         # GitHub Pages aktivieren (idempotent)
         pages_url = get_or_create_gh_pages(github_token, github_repo)
         if pages_url:
