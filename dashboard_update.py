@@ -218,57 +218,69 @@ def _parse_inventarblatt(ws):
     data = {}
     rows = list(ws.iter_rows(values_only=True))
 
+    # Debug: erste 30 Zeilen ausgeben
+    print(f"    [BLATT] Sheet '{ws.title}' — erste 30 Zeilen:")
+    for i, row in enumerate(rows[:30]):
+        non_empty = [(j, str(c)) for j, c in enumerate(row) if c is not None]
+        if non_empty:
+            print(f"      Row {i+1}: {non_empty}")
+
     for i, row in enumerate(rows):
         row_str = " ".join(str(c) for c in row if c is not None).upper()
 
-        # Gesamtvermögen / NAV
-        if "GESAMTVERM" in row_str or "FONDSVERM" in row_str or "NETTOVERM" in row_str:
+        # Gesamtvermögen / NAV — viele mögliche Labels
+        if any(k in row_str for k in ["GESAMTVERM", "FONDSVERM", "NETTOVERM", "TOTAL NET ASSET",
+                                       "TOTAL ASSETS", "FUND VOLUME", "INVENTARWERT GESAMT",
+                                       "NET ASSET VALUE", "GESAMT"]):
             for cell in row:
                 if isinstance(cell, (int, float)) and cell > 1_000_000:
                     data["nav"] = float(cell)
+                    print(f"    → NAV gefunden Zeile {i+1}: {cell}")
                     break
 
         # Rücknahmepreis / NAV per share
-        if "RÜCKNAHME" in row_str or "ANTEILSWERT" in row_str or "INVENTARWERT" in row_str:
+        if any(k in row_str for k in ["RÜCKNAHME", "ANTEILSWERT", "INVENTARWERT JE",
+                                       "REDEMPTION PRICE", "NET ASSET VALUE PER",
+                                       "PRICE PER UNIT", "VALUE PER SHARE", "UNIT VALUE",
+                                       "ANTEILSPR"]):
             for cell in row:
-                if isinstance(cell, (int, float)) and 10 < cell < 100_000:
+                if isinstance(cell, (int, float)) and 1 < cell < 100_000:
                     data["nav_per_share"] = float(cell)
+                    print(f"    → Preis gefunden Zeile {i+1}: {cell}")
                     break
 
         # Anzahl Anteile
-        if "ANTEILE" in row_str and ("UMLAUF" in row_str or "AUSST" in row_str):
-            for cell in row:
-                if isinstance(cell, (int, float)) and cell > 100:
-                    data["shares"] = float(cell)
-                    break
+        if any(k in row_str for k in ["ANTEILE", "UNITS", "SHARES OUTSTANDING", "AUSGEGEBEN"]):
+            if any(k in row_str for k in ["UMLAUF", "AUSST", "OUTSTANDING", "ISSUED", "GESAMT"]):
+                for cell in row:
+                    if isinstance(cell, (int, float)) and cell > 100:
+                        data["shares"] = float(cell)
+                        print(f"    → Anteile gefunden Zeile {i+1}: {cell}")
+                        break
 
-        # BVI Performance YTD (01.01.–heute)
-        if "BVI" in row_str:
-            if "01.01" in row_str or "JAHRESBEG" in row_str or "YTD" in row_str:
+        # BVI Performance
+        if "BVI" in row_str or "PERFORMANCE" in row_str or "RENDITE" in row_str:
+            if any(k in row_str for k in ["01.01", "JAHRESBEG", "YTD", "YEAR TO DATE", "SEIT 01.01"]):
                 for cell in row:
                     if isinstance(cell, (int, float)) and -50 < cell < 200:
                         data["perf_ytd"] = float(cell)
+                        print(f"    → YTD gefunden Zeile {i+1}: {cell}")
                         break
-            elif "GJ" in row_str or "GESCHÄFTSJ" in row_str or "FISKAL" in row_str or "01.10" in row_str:
+            if any(k in row_str for k in ["01.10", "GESCHÄFTSJ", "GJ", "FISCAL", "FISKAL", "SEIT 01.10"]):
                 for cell in row:
                     if isinstance(cell, (int, float)) and -50 < cell < 200:
                         data["perf_fy"] = float(cell)
+                        print(f"    → FY gefunden Zeile {i+1}: {cell}")
                         break
 
-        # Redemption price (Rücknahmepreis) – robustere Suche
-        if "REDEMPTION" in row_str or ("NET ASSET" in row_str and "SHARE" in row_str):
-            for cell in row:
-                if isinstance(cell, (int, float)) and 10 < cell < 100_000:
-                    data.setdefault("nav_per_share", float(cell))
-                    break
-
-    # Datum aus Sheet-Name oder Zellen
+    # Datum aus Zellen
     for row in rows[:10]:
         for cell in row:
             if isinstance(cell, (datetime, date)):
                 data["report_date"] = str(cell)[:10]
                 break
 
+    print(f"    [BLATT] Ergebnis: {data}")
     return data
 
 
@@ -766,7 +778,7 @@ tr:hover td {{ background: var(--surface2); }}
 <div class="card">
   <h3><span class="tip" data-tip="Nettoinventarwert pro Anteilschein – der Preis zu dem Anteile zurückgegeben werden können">Rücknahmepreis</span></h3>
   <div class="kpi-val">{nav_ps:.4f} €</div>
-  <div class="kpi-sub {'pos' if day_chg_pct and day_chg_pct>=0 else 'neg'}">{pl_sign(day_chg_pct or 0)}{day_chg_pct:.2f}% heute</div>
+  {f'<div class="kpi-sub {chr(39)}pos{chr(39) if (day_chg_pct or 0)>=0 else chr(39)}neg{chr(39)}">{pl_sign(day_chg_pct or 0)}{(day_chg_pct or 0):.2f}% heute</div>' if day_chg_pct is not None else ''}
 </div>
 <div class="card">
   <h3><span class="tip" data-tip="BVI-Performance seit 01.01. des laufenden Jahres (Jahresbeginn bis heute)">YTD Performance</span></h3>
