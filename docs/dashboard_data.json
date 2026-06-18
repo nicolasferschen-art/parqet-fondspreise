@@ -3,7 +3,7 @@
     "id": "3411",
     "isin": "AT0000A1QA38",
     "color": "#1a56db",
-    "name": "3411 – IQAM Standortfonds Österreich",
+    "name": "Standortfonds AT",
     "nav": 167203974.33,
     "perf_ytd": 16.914778,
     "perf_fy": 23.179024,
@@ -294,7 +294,7 @@
         "value": 0.0
       }
     ],
-    "nav_per_share_prev": null,
+    "nav_per_share_prev": 225.56,
     "nav_prev": 167203974.33,
     "price_history": [
       {
@@ -308,6 +308,12 @@
         "label": "01.01.2026",
         "price": 192.9269,
         "note": "Jahresstart (berechnet aus BVI)"
+      },
+      {
+        "date": "2026-06-17",
+        "label": "17.06.2026",
+        "price": 225.56,
+        "note": "Vortag (Inventarblatt)"
       },
       {
         "date": "2026-06-18",
@@ -3625,7 +3631,7 @@
     "id": "3431",
     "isin": "AT0000A1Z882",
     "color": "#d03801",
-    "name": "3431 – IQAM Standortfonds Deutschland",
+    "name": "Standortfonds DE",
     "nav": 55433569.02,
     "perf_ytd": 10.833333,
     "perf_fy": 15.013279,
@@ -3908,7 +3914,7 @@
         "value": 0.04
       }
     ],
-    "nav_per_share_prev": null,
+    "nav_per_share_prev": 2188.27,
     "nav_prev": 55433569.02,
     "price_history": [
       {
@@ -3922,6 +3928,12 @@
         "label": "01.01.2026",
         "price": 1974.379,
         "note": "Jahresstart (berechnet aus BVI)"
+      },
+      {
+        "date": "2026-06-17",
+        "label": "17.06.2026",
+        "price": 2188.27,
+        "note": "Vortag (Inventarblatt)"
       },
       {
         "date": "2026-06-18",
@@ -7431,7 +7443,7 @@
     "id": "3581",
     "isin": "AT0000A3EAW0",
     "color": "#046c4e",
-    "name": "3581 – IQAM Sunrise Dividends and Interest",
+    "name": "Dividends and Interest",
     "nav": 26786317.91,
     "perf_ytd": 5.849817,
     "perf_fy": 8.898999,
@@ -7634,7 +7646,7 @@
         "value": 0.16
       }
     ],
-    "nav_per_share_prev": null,
+    "nav_per_share_prev": 113.08,
     "nav_prev": 26786317.91,
     "price_history": [
       {
@@ -7648,6 +7660,12 @@
         "label": "01.01.2026",
         "price": 106.8306,
         "note": "Jahresstart (berechnet aus BVI)"
+      },
+      {
+        "date": "2026-06-17",
+        "label": "17.06.2026",
+        "price": 113.08,
+        "note": "Vortag (Inventarblatt)"
       },
       {
         "date": "2026-06-18",
