@@ -1310,6 +1310,10 @@ tr:hover td {{ background: var(--surface2); }}
     <div class="section-title" style="margin:0">📰 News — Alle Positionen</div>
     <div style="font-size:12px;color:var(--muted);margin-top:4px" id="news-status">Lade…</div>
   </div>
+  <button onclick="location.reload()"
+    style="background:none;border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:12px;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:6px"
+    onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+    onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">↻ Aktualisieren</button>
 </div>
 <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px">
   {news_fund_btns}
@@ -2028,13 +2032,14 @@ function renderNewsPanel(fundFilter) {
         try { label = new URL(a.link).hostname.replace(/^www\./,''); } catch(e) {}
       }
       label = label || 'Quelle';
+      const dateStr = a.pubDate ? ' <span style="color:var(--muted);font-size:11px">(' + _fmtD(a.pubDate) + ')</span>' : '';
       const href = _escH(a.link || '#');
       return `<a href="${href}" target="_blank" rel="noopener noreferrer"
         title="${_escH(a.title)}"
         style="color:var(--accent);font-size:12px;text-decoration:none"
         onmouseover="this.style.textDecoration='underline'"
-        onmouseout="this.style.textDecoration='none'">${_escH(label)}</a>`;
-    }).join('<span style="color:var(--border);margin:0 4px">·</span>');
+        onmouseout="this.style.textDecoration='none'">${_escH(label)}</a>${dateStr}`;
+    }).join('<span style="color:var(--border);margin:0 6px">·</span>');
 
     return `<div class="card" style="padding:16px 18px">
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -2086,11 +2091,10 @@ function toggleRunLog() {
     const ok = r.status === 'success';
     const isLatest = i === 0;
     return `<tr style="border-bottom:1px solid var(--border);${isLatest?'background:var(--surface2)':''}">
-      <td style="padding:10px 16px;font-size:13px;font-weight:${isLatest?700:400}">${fmt(r.ts)}</td>
+      <td style="padding:10px 16px;font-size:13px;font-weight:${isLatest?700:400};white-space:nowrap">${fmt(r.ts)}</td>
       <td style="padding:10px 16px;text-align:center;font-size:15px">${ok ? '✅' : '❌'}</td>
-      <td style="padding:10px 16px;font-size:12px;color:var(--muted)">${ok ? `${r.funds ?? 0} Fonds · ${r.holdings ?? 0} Positionen · ${r.news ?? 0} News` : 'Fehler beim Import'}</td>
     </tr>`;
-  }).join('') : '<tr><td colspan="3" style="padding:24px;text-align:center;color:var(--muted)">Noch keine Runs</td></tr>';
+  }).join('') : '<tr><td colspan="2" style="padding:24px;text-align:center;color:var(--muted)">Noch keine Runs</td></tr>';
 
   el = document.createElement('div');
   el.id = 'run-log-modal';
@@ -2102,6 +2106,10 @@ function toggleRunLog() {
         style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px">×</button>
     </div>
     <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="border-bottom:1px solid var(--border)">
+        <th style="padding:8px 16px;font-size:11px;color:var(--muted);text-align:left;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Datum</th>
+        <th style="padding:8px 16px;font-size:11px;color:var(--muted);text-align:center;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Status</th>
+      </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
   document.body.appendChild(el);
