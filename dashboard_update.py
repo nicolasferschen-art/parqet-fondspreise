@@ -239,16 +239,33 @@ def _parse_inventarblatt(ws):
                     break
 
         # Rücknahmepreis / NAV per share
-        if any(k in row_str for k in ["RÜCKNAHME", "ANTEILSWERT", "INVENTARWERT JE",
+        # Direkter Match auf "Asset (by DD.MM.YYYY)" — Spalte 7 = Redemption price
+        if "ASSET (BY" in row_str or "ASSET(BY" in row_str:
+            # Spalte 7 = Redemption price, Spalte 5 = Unit Price
+            for col_idx in [7, 6, 5]:
+                if col_idx < len(row) and row[col_idx] is not None:
+                    try:
+                        v = float(row[col_idx])
+                        if 10 < v < 5000:
+                            data["nav_per_share"] = v
+                            print(f"    → Preis (Asset-Zeile {i+1}, col {col_idx}): {v}")
+                            break
+                    except (TypeError, ValueError):
+                        pass
+        elif any(k in row_str for k in ["RÜCKNAHME", "ANTEILSWERT", "INVENTARWERT JE",
                                        "REDEMPTION PRICE", "NET ASSET VALUE PER",
                                        "PRICE PER UNIT", "VALUE PER SHARE", "UNIT VALUE",
                                        "ANTEILSPR", "RECHENWERT", "FONDSKURS", "KURS JE",
                                        "PREIS JE", "AUSGABE", "PRICE PER"]):
             for cell in row:
-                if isinstance(cell, (int, float)) and 1 < cell < 100_000:
-                    data["nav_per_share"] = float(cell)
-                    print(f"    → Preis gefunden Zeile {i+1}: {cell}")
-                    break
+                try:
+                    v = float(cell)
+                    if 1 < v < 100_000:
+                        data["nav_per_share"] = v
+                        print(f"    → Preis gefunden Zeile {i+1}: {v}")
+                        break
+                except (TypeError, ValueError):
+                    pass
 
         # Anzahl Anteile
         if any(k in row_str for k in ["ANTEILE", "UNITS", "SHARES OUTSTANDING", "AUSGEGEBEN"]):
@@ -287,11 +304,15 @@ def _parse_inventarblatt(ws):
         nav_val = data["nav"]
         for i, row in enumerate(rows[29:65], start=30):
             for cell in row:
-                if isinstance(cell, (int, float)) and 10 < cell < 5000:
-                    implied_shares = nav_val / cell
+                try:
+                    cell_f = float(cell)
+                except (TypeError, ValueError):
+                    continue
+                if 10 < cell_f < 5000:
+                    implied_shares = nav_val / cell_f
                     if implied_shares > 1000:
-                        data["nav_per_share"] = float(cell)
-                        print(f"    → Preis (Fallback Zeile {i}): {cell} → {implied_shares:,.0f} Anteile impl.")
+                        data["nav_per_share"] = cell_f
+                        print(f"    → Preis (Fallback Zeile {i}): {cell_f} → {implied_shares:,.0f} Anteile impl.")
                         break
             if data.get("nav_per_share"):
                 break
