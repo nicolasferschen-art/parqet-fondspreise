@@ -882,7 +882,7 @@ tr:hover td {{ background: var(--surface2); }}
         nav_ps = f.get("nav_per_share") or 0
         nav_ps_prev = f.get("nav_per_share_prev")
         day_chg = ""
-        if nav_ps and nav_ps_prev:
+        if nav_ps and nav_ps_prev and abs((nav_ps - nav_ps_prev) / nav_ps_prev) < 0.15:
             d = (nav_ps - nav_ps_prev) / nav_ps_prev * 100
             d_cls = "pos" if d >= 0 else "neg"
             day_chg = f'<div class="kpi-sub {d_cls}">{pl_sign(d)}{d:.2f}% heute</div>'
@@ -925,7 +925,7 @@ tr:hover td {{ background: var(--surface2); }}
         nav = f.get("nav", 0)
         nav_ps = float(f.get("nav_per_share") or 0)
         nav_ps_prev = f.get("nav_per_share_prev")
-        day_chg_pct = ((nav_ps - nav_ps_prev) / nav_ps_prev * 100) if nav_ps and nav_ps_prev else None
+        day_chg_pct = ((nav_ps - nav_ps_prev) / nav_ps_prev * 100) if nav_ps and nav_ps_prev and abs((nav_ps - nav_ps_prev) / nav_ps_prev) < 0.15 else None
         ytd = f.get("perf_ytd", 0) or 0
         fy  = f.get("perf_fy", 0) or 0
         total_pl_f  = f.get("total_pl", 0) or 0
