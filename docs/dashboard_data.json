@@ -7,6 +7,7 @@
     "nav": 167203974.33,
     "perf_ytd": 16.914778,
     "perf_fy": 23.179024,
+    "nav_per_share": 225.56,
     "countries": [
       {
         "label": "Austria",
@@ -295,7 +296,26 @@
     ],
     "nav_per_share_prev": null,
     "nav_prev": 167203974.33,
-    "price_history": [],
+    "price_history": [
+      {
+        "date": "2025-10-01",
+        "label": "01.10.2025",
+        "price": 183.1156,
+        "note": "GJ-Start (berechnet aus BVI)"
+      },
+      {
+        "date": "2026-01-01",
+        "label": "01.01.2026",
+        "price": 192.9269,
+        "note": "Jahresstart (berechnet aus BVI)"
+      },
+      {
+        "date": "2026-06-18",
+        "label": "18.06.2026",
+        "price": 225.56,
+        "note": "Heute (Inventarblatt)"
+      }
+    ],
     "changes": {
       "added": [],
       "removed": [],
@@ -3609,6 +3629,7 @@
     "nav": 55433569.02,
     "perf_ytd": 10.833333,
     "perf_fy": 15.013279,
+    "nav_per_share": 2188.27,
     "countries": [
       {
         "label": "United States",
@@ -3889,7 +3910,26 @@
     ],
     "nav_per_share_prev": null,
     "nav_prev": 55433569.02,
-    "price_history": [],
+    "price_history": [
+      {
+        "date": "2025-10-01",
+        "label": "01.10.2025",
+        "price": 1902.6238,
+        "note": "GJ-Start (berechnet aus BVI)"
+      },
+      {
+        "date": "2026-01-01",
+        "label": "01.01.2026",
+        "price": 1974.379,
+        "note": "Jahresstart (berechnet aus BVI)"
+      },
+      {
+        "date": "2026-06-18",
+        "label": "18.06.2026",
+        "price": 2188.27,
+        "note": "Heute (Inventarblatt)"
+      }
+    ],
     "changes": {
       "added": [],
       "removed": [],
@@ -7395,6 +7435,7 @@
     "nav": 26786317.91,
     "perf_ytd": 5.849817,
     "perf_fy": 8.898999,
+    "nav_per_share": 113.08,
     "countries": [
       {
         "label": "United States",
@@ -7595,7 +7636,26 @@
     ],
     "nav_per_share_prev": null,
     "nav_prev": 26786317.91,
-    "price_history": [],
+    "price_history": [
+      {
+        "date": "2025-10-01",
+        "label": "01.10.2025",
+        "price": 103.8393,
+        "note": "GJ-Start (berechnet aus BVI)"
+      },
+      {
+        "date": "2026-01-01",
+        "label": "01.01.2026",
+        "price": 106.8306,
+        "note": "Jahresstart (berechnet aus BVI)"
+      },
+      {
+        "date": "2026-06-18",
+        "label": "18.06.2026",
+        "price": 113.08,
+        "note": "Heute (Inventarblatt)"
+      }
+    ],
     "changes": {
       "added": [],
       "removed": [],
