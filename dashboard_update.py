@@ -500,35 +500,35 @@ def compute_kpis(fund_data):
         "win_rate":   round(win_rate, 1),
     })
 
-    # Fallback: Länder-/Sektor-Allokation aus Holdings berechnen wenn keine dedizierte Sheet
+    # Länder- und Sektor-Allokation IMMER aus Holdings berechnen (zuverlässiger als dedizierte Sheets)
     if holdings:
         total_mv_h = sum(h["mv_eur"] for h in holdings if h["mv_eur"])
         if total_mv_h > 0:
-            if not fund_data.get("countries"):
-                ctry_mv = {}
-                for h in holdings:
-                    c = h.get("country") or "Unbekannt"
-                    if c not in ("None", ""):
-                        ctry_mv[c] = ctry_mv.get(c, 0) + (h["mv_eur"] or 0)
+            ctry_mv = {}
+            for h in holdings:
+                c = h.get("country") or "Unbekannt"
+                if c not in ("None", "", "Unbekannt"):
+                    ctry_mv[c] = ctry_mv.get(c, 0) + (h["mv_eur"] or 0)
+            if ctry_mv:
                 fund_data["countries"] = [
                     {"label": k, "value": round(v / total_mv_h * 100, 2)}
                     for k, v in sorted(ctry_mv.items(), key=lambda x: x[1], reverse=True)
                     if v > 0
                 ]
-                print(f"    [KPI] Länder aus Holdings berechnet: {len(fund_data['countries'])} Einträge")
+                print(f"    [KPI] Länder aus Holdings: {len(fund_data['countries'])} Einträge")
 
-            if not fund_data.get("sectors"):
-                sec_mv = {}
-                for h in holdings:
-                    s = h.get("sector") or "Sonstiges"
-                    if s not in ("None", ""):
-                        sec_mv[s] = sec_mv.get(s, 0) + (h["mv_eur"] or 0)
+            sec_mv = {}
+            for h in holdings:
+                s = h.get("sector") or "Sonstiges"
+                if s not in ("None", ""):
+                    sec_mv[s] = sec_mv.get(s, 0) + (h["mv_eur"] or 0)
+            if sec_mv:
                 fund_data["sectors"] = [
                     {"label": k, "value": round(v / total_mv_h * 100, 2)}
                     for k, v in sorted(sec_mv.items(), key=lambda x: x[1], reverse=True)
                     if v > 0
                 ]
-                print(f"    [KPI] Sektoren aus Holdings berechnet: {len(fund_data['sectors'])} Einträge")
+                print(f"    [KPI] Sektoren aus Holdings: {len(fund_data['sectors'])} Einträge")
 
     return fund_data
 
