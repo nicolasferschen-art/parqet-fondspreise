@@ -315,7 +315,8 @@ def _parse_positions(ws):
         # Marktwert in Fondswährung (EUR) – Index 15 aus Erfahrung
         elif "MKT VAL" in hu and ("EUR" in hu or "FNDCCY" in hu or "FUND" in hu):
             col_map["mv_eur"] = j
-        elif "P&L" in hu or "G&V" in hu or "GEWINN" in hu:
+        elif any(k in hu for k in ["P&L", "G&V", "GEWINN", "UNREALIZED", "UNREAL", "GAIN/LOSS",
+                                     "GAIN LOSS", "BOOK PROFIT", "BUCHGEWINN", "G/V"]):
             col_map["pl"] = j
         elif "WEIGHT" in hu or "ANTEIL" in hu or "%" in hu:
             col_map.setdefault("weight", j)
@@ -396,23 +397,65 @@ def _parse_positions(ws):
 
 
 def _parse_allocation(ws):
-    """Liest Allokations-Tabellen (Country / Currency / Sector)."""
+    """Liest Allokations-Tabellen (Country / Currency / Sector).
+    Versucht Prozent-Spalte zu finden; fällt auf erste numerische Spalte zurück.
+    """
     rows = list(ws.iter_rows(values_only=True))
+
+    # Header-Zeile finden und Prozent-Spalte identifizieren
+    pct_col = None
+    data_start = 0
+    for i, row in enumerate(rows[:10]):
+        row_str = " ".join(str(c) for c in row if c is not None).upper()
+        if any(k in row_str for k in ["%", "WEIGHT", "ANTEIL", "PERCENT", "GEWICHT"]):
+            # Finde die Prozent-Spalte
+            for j, cell in enumerate(row):
+                if cell and any(k in str(cell).upper() for k in ["%", "WEIGHT", "ANTEIL", "PERCENT", "GEWICHT"]):
+                    pct_col = j
+                    break
+            data_start = i + 1
+            break
+
+    print(f"    [ALLOC] Sheet '{ws.title}': pct_col={pct_col}, data_start={data_start}")
+
     result = []
-    for row in rows:
+    skip_labels = {"", "None", "Total", "Gesamt", "Land", "Country", "Sektor", "Sector",
+                   "Währung", "Currency", "Name", "Bezeichnung"}
+    for row in rows[data_start:]:
         if len(row) < 2:
             continue
         label = row[0]
-        if not label or str(label).strip() in ("", "None", "Total", "Gesamt", "Land", "Country"):
+        if not label or str(label).strip() in skip_labels:
             continue
-        # Wert: erste numerische Spalte
-        for cell in row[1:]:
+        label_str = str(label).strip()
+        # Abbruch bei Summenzeilen
+        if any(k in label_str.upper() for k in ["TOTAL", "SUMME", "GESAMT", "SUM"]):
+            continue
+
+        val = None
+        if pct_col is not None and pct_col < len(row):
+            cell = row[pct_col]
             if isinstance(cell, (int, float)) and cell != 0:
-                try:
-                    result.append({"label": str(label).strip(), "value": float(cell)})
-                except (TypeError, ValueError):
-                    pass
-                break
+                val = float(cell)
+
+        if val is None:
+            # Fallback: bevorzuge kleine Zahlen (0-100) als %, vermeide Millionenbeträge
+            for cell in row[1:]:
+                if isinstance(cell, (int, float)) and cell != 0:
+                    if 0 < abs(cell) <= 100:
+                        val = float(cell)
+                        break
+            if val is None:
+                # letzter Fallback: irgendeine Zahl
+                for cell in row[1:]:
+                    if isinstance(cell, (int, float)) and cell != 0:
+                        val = float(cell)
+                        break
+
+        if val is not None:
+            result.append({"label": label_str, "value": val})
+
+    print(f"    [ALLOC] {len(result)} Einträge: {result[:5]}")
     return result
 
 
@@ -456,6 +499,37 @@ def compute_kpis(fund_data):
         "top10_weight": round(top10_pct, 1),
         "win_rate":   round(win_rate, 1),
     })
+
+    # Fallback: Länder-/Sektor-Allokation aus Holdings berechnen wenn keine dedizierte Sheet
+    if holdings:
+        total_mv_h = sum(h["mv_eur"] for h in holdings if h["mv_eur"])
+        if total_mv_h > 0:
+            if not fund_data.get("countries"):
+                ctry_mv = {}
+                for h in holdings:
+                    c = h.get("country") or "Unbekannt"
+                    if c not in ("None", ""):
+                        ctry_mv[c] = ctry_mv.get(c, 0) + (h["mv_eur"] or 0)
+                fund_data["countries"] = [
+                    {"label": k, "value": round(v / total_mv_h * 100, 2)}
+                    for k, v in sorted(ctry_mv.items(), key=lambda x: x[1], reverse=True)
+                    if v > 0
+                ]
+                print(f"    [KPI] Länder aus Holdings berechnet: {len(fund_data['countries'])} Einträge")
+
+            if not fund_data.get("sectors"):
+                sec_mv = {}
+                for h in holdings:
+                    s = h.get("sector") or "Sonstiges"
+                    if s not in ("None", ""):
+                        sec_mv[s] = sec_mv.get(s, 0) + (h["mv_eur"] or 0)
+                fund_data["sectors"] = [
+                    {"label": k, "value": round(v / total_mv_h * 100, 2)}
+                    for k, v in sorted(sec_mv.items(), key=lambda x: x[1], reverse=True)
+                    if v > 0
+                ]
+                print(f"    [KPI] Sektoren aus Holdings berechnet: {len(fund_data['sectors'])} Einträge")
+
     return fund_data
 
 
@@ -718,7 +792,8 @@ tr:hover td {{ background: var(--surface2); }}
         day_chg = ""
         if nav_ps and nav_ps_prev:
             d = (nav_ps - nav_ps_prev) / nav_ps_prev * 100
-            day_chg = f'<div class="kpi-sub {'pos' if d>=0 else 'neg'}">{pl_sign(d)}{d:.2f}% heute</div>'
+            d_cls = "pos" if d >= 0 else "neg"
+            day_chg = f'<div class="kpi-sub {d_cls}">{pl_sign(d)}{d:.2f}% heute</div>'
 
         html += f"""<div class="card fund-card-link" onclick="switchTab('fund-{f['id']}')">
   <h3>{f['name']}</h3>
@@ -875,8 +950,10 @@ tr:hover td {{ background: var(--surface2); }}
         html += '<div class="grid-3">\n'
         # Länder
         html += f'<div class="card"><h3>Länder</h3><div id="bars-country-{fid}">\n'
-        for item in sorted(countries, key=lambda x: x["value"], reverse=True)[:15]:
-            max_v = countries[0]["value"] if countries else 1
+        sorted_countries = sorted(countries, key=lambda x: x["value"], reverse=True)[:15]
+        max_v_c = sorted_countries[0]["value"] if sorted_countries else 1
+        for item in sorted_countries:
+            max_v = max_v_c
             pct = item["value"] / max_v * 100
             html += f'<div class="bar-row"><div class="bar-label" title="{item["label"]}">{item["label"]}</div><div class="bar-track"><div class="bar-fill" style="width:{pct:.1f}%;background:{f["color"]}"></div></div><div class="bar-val">{item["value"]:,.1f}%</div></div>\n'
         html += '</div></div>\n'
@@ -884,8 +961,10 @@ tr:hover td {{ background: var(--surface2); }}
         html += f'<div class="card"><h3>Währungen</h3><div class="chart-wrap"><canvas id="chart-ccy-{fid}"></canvas></div></div>\n'
         # Sektoren
         html += f'<div class="card"><h3>Sektoren</h3><div id="bars-sector-{fid}">\n'
-        for item in sorted(sectors, key=lambda x: x["value"], reverse=True)[:10]:
-            max_v = sectors[0]["value"] if sectors else 1
+        sorted_sectors = sorted(sectors, key=lambda x: x["value"], reverse=True)[:10]
+        max_v_s = sorted_sectors[0]["value"] if sorted_sectors else 1
+        for item in sorted_sectors:
+            max_v = max_v_s
             pct = item["value"] / max_v * 100
             html += f'<div class="bar-row"><div class="bar-label" title="{item["label"]}">{item["label"]}</div><div class="bar-track"><div class="bar-fill" style="width:{pct:.1f}%;background:{f["color"]}"></div></div><div class="bar-val">{item["value"]:,.1f}%</div></div>\n'
         html += '</div></div>\n'
