@@ -747,7 +747,7 @@ def _clean_news_name(name):
     return ' '.join(clean.split()[:3])
 
 
-def fetch_all_news(companies, max_per_company=3, request_timeout=5, anthropic_key=None):
+def fetch_all_news(companies, max_per_company=3, request_timeout=5, anthropic_key=None, max_summaries=50):
     """Fetcht News via Google News RSS für alle Unternehmen, optional mit Haiku-Zusammenfassung."""
     import xml.etree.ElementTree as ET
     import time as _time
@@ -757,7 +757,8 @@ def fetch_all_news(companies, max_per_company=3, request_timeout=5, anthropic_ke
     items_list = list(companies.items())
     total = len(items_list)
     summarize = bool(anthropic_key)
-    print(f"\n📰 Fetche News für {total} Unternehmen{' (mit KI-Zusammenfassung)' if summarize else ''}…")
+    summary_count = 0
+    print(f"\n📰 Fetche News für {total} Unternehmen{f' (KI-Summary für Top {max_summaries})' if summarize else ''}…")
 
     for i, (key, co) in enumerate(items_list):
         clean = _clean_news_name(co["name"])
@@ -781,7 +782,10 @@ def fetch_all_news(companies, max_per_company=3, request_timeout=5, anthropic_ke
                 if title:
                     arts.append({"title": title, "link": link, "pubDate": pub, "source": src})
             if arts:
-                summary = summarize_news(co["name"], arts, anthropic_key) if summarize else None
+                do_summary = summarize and summary_count < max_summaries
+                summary = summarize_news(co["name"], arts, anthropic_key) if do_summary else None
+                if summary:
+                    summary_count += 1
                 news_data[key] = {
                     "company": co["name"],
                     "funds": co["funds"],
@@ -2072,52 +2076,36 @@ function toggleRunLog() {
   const fmt = ts => {
     try {
       const d = new Date(ts);
-      return d.toLocaleDateString('de-AT',{day:'2-digit',month:'2-digit',year:'numeric'}) + ' ' +
-             d.toLocaleTimeString('de-AT',{hour:'2-digit',minute:'2-digit'}) + ' UTC';
+      const today = new Date().toDateString() === d.toDateString();
+      const dateStr = today ? 'Heute' : d.toLocaleDateString('de-AT',{day:'2-digit',month:'2-digit'});
+      return dateStr + ' · ' + d.toLocaleTimeString('de-AT',{hour:'2-digit',minute:'2-digit'}) + ' Uhr';
     } catch(e) { return ts || '—'; }
   };
-  const fmtAum = v => {
-    if (!v) return '—';
-    return (v/1e6).toLocaleString('de-AT',{minimumFractionDigits:1,maximumFractionDigits:1}) + ' Mio.';
-  };
 
-  const rows = RUN_LOG.length ? RUN_LOG.map(r => `
-    <tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:7px 12px;font-size:12px;white-space:nowrap">${fmt(r.ts)}</td>
-      <td style="padding:7px 12px;text-align:center;font-size:13px">${r.status==='success'?'✅':'❌'}</td>
-      <td style="padding:7px 12px;text-align:right;font-size:12px">${r.funds ?? '—'}</td>
-      <td style="padding:7px 12px;text-align:right;font-size:12px">${r.holdings ?? '—'}</td>
-      <td style="padding:7px 12px;text-align:right;font-size:12px">${r.news ?? '—'}</td>
-      <td style="padding:7px 12px;text-align:right;font-size:12px">${r.summaries ?? '—'}</td>
-      <td style="padding:7px 12px;text-align:right;font-size:12px">${fmtAum(r.aum)}</td>
-    </tr>`).join('') : '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--muted)">Keine Einträge</td></tr>';
+  const rows = RUN_LOG.length ? RUN_LOG.map((r,i) => {
+    const ok = r.status === 'success';
+    const isLatest = i === 0;
+    return `<tr style="border-bottom:1px solid var(--border);${isLatest?'background:var(--surface2)':''}">
+      <td style="padding:10px 16px;font-size:13px;font-weight:${isLatest?700:400}">${fmt(r.ts)}</td>
+      <td style="padding:10px 16px;text-align:center;font-size:15px">${ok ? '✅' : '❌'}</td>
+      <td style="padding:10px 16px;font-size:12px;color:var(--muted)">${ok ? `${r.funds ?? 0} Fonds · ${r.holdings ?? 0} Positionen · ${r.news ?? 0} News` : 'Fehler beim Import'}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="3" style="padding:24px;text-align:center;color:var(--muted)">Noch keine Runs</td></tr>';
 
   el = document.createElement('div');
   el.id = 'run-log-modal';
-  el.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 32px #0002;min-width:700px;max-width:95vw;max-height:80vh;overflow:auto';
+  el.style.cssText = 'position:fixed;top:58px;left:16px;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 32px #0002;min-width:380px;max-width:95vw;max-height:70vh;overflow:auto';
   el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)">
-      <span style="font-weight:700;font-size:14px">📋 Workflow Run-Historie</span>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)">
+      <span style="font-weight:700;font-size:13px">Tägliche Daten-Updates</span>
       <button onclick="document.getElementById('run-log-modal').remove()"
-        style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);line-height:1">×</button>
+        style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);line-height:1;padding:0 4px">×</button>
     </div>
     <table style="width:100%;border-collapse:collapse">
-      <thead>
-        <tr style="background:var(--surface2);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">
-          <th style="padding:8px 12px;text-align:left;font-weight:600">Zeitpunkt</th>
-          <th style="padding:8px 12px;font-weight:600">Status</th>
-          <th style="padding:8px 12px;text-align:right;font-weight:600">Fonds</th>
-          <th style="padding:8px 12px;text-align:right;font-weight:600">Positionen</th>
-          <th style="padding:8px 12px;text-align:right;font-weight:600">News</th>
-          <th style="padding:8px 12px;text-align:right;font-weight:600">KI-Summary</th>
-          <th style="padding:8px 12px;text-align:right;font-weight:600">Gesamt-AuM</th>
-        </tr>
-      </thead>
       <tbody>${rows}</tbody>
     </table>`;
   document.body.appendChild(el);
 
-  // Close on outside click
   setTimeout(() => {
     document.addEventListener('click', function handler(e) {
       if (!el.contains(e.target) && !e.target.closest('button[onclick="toggleRunLog()"]')) {
