@@ -1193,10 +1193,20 @@ tr:hover td {{ background: var(--surface2); }}
 
     # ── Gewinner/Verlierer Panel ─────────────────────────────────────────────
     html += '<div class="panel" id="panel-winners">\n'
-    html += '''<div style="display:flex;gap:4px;margin-bottom:24px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px;width:fit-content">
-  <button class="wl-tab active" onclick="switchWLTab('pl')" id="wltab-pl" style="padding:8px 20px;border:none;background:var(--accent);color:white;border-radius:7px;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s">Unrealisiertes P/L</button>
-  <button class="wl-tab" onclick="switchWLTab('month')" id="wltab-month" style="padding:8px 20px;border:none;background:transparent;color:var(--muted);border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s">1 Monat</button>
-  <button class="wl-tab" onclick="switchWLTab('day')" id="wltab-day" style="padding:8px 20px;border:none;background:transparent;color:var(--muted);border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s">Heute</button>
+    # Build fund filter buttons
+    fund_btns = '<button class="range-btn active" id="wlf-all" onclick="setWLFund(\'all\')" style="font-size:13px">Alle Fonds</button>\n'
+    for f in funds_data:
+        fund_btns += f'<button class="range-btn" id="wlf-{f["id"]}" onclick="setWLFund(\'{f["id"]}\')" style="font-size:13px;border-color:{f["color"]}40;color:{f["color"]}">{f["name"]}</button>\n'
+
+    html += f'''<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:20px">
+  <div style="display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px">
+    <button class="wl-tab active" onclick="switchWLTab('pl')" id="wltab-pl" style="padding:8px 20px;border:none;background:var(--accent);color:white;border-radius:7px;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s">Unrealisiertes P/L</button>
+    <button class="wl-tab" onclick="switchWLTab('month')" id="wltab-month" style="padding:8px 20px;border:none;background:transparent;color:var(--muted);border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s">1 Monat</button>
+    <button class="wl-tab" onclick="switchWLTab('day')" id="wltab-day" style="padding:8px 20px;border:none;background:transparent;color:var(--muted);border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s">Heute</button>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    {fund_btns}
+  </div>
 </div>
 '''
 
@@ -1386,6 +1396,33 @@ new Chart(document.getElementById('cov-aum'), {
 });
 
 // ── Gewinner / Verlierer ──────────────────────────────────────────────────
+let _wlFund = 'all';
+function setWLFund(fid) {
+  _wlFund = fid;
+  // Update button styles
+  document.querySelectorAll('[id^="wlf-"]').forEach(b => {
+    const isActive = b.id === 'wlf-' + fid;
+    if (b.id === 'wlf-all') {
+      b.style.background = isActive ? 'var(--accent)' : '';
+      b.style.color = isActive ? 'white' : '';
+      b.style.borderColor = isActive ? 'var(--accent)' : '';
+    } else {
+      const fund = FUNDS_DATA.find(f => 'wlf-'+f.id === b.id);
+      const col = fund ? fund.color : 'var(--accent)';
+      b.style.background = isActive ? col : '';
+      b.style.color = isActive ? 'white' : col;
+      b.style.borderColor = isActive ? col : col+'40';
+    }
+  });
+  _wlRendered = false;
+  initWL();
+}
+
+function _filterByFund(items) {
+  if (_wlFund === 'all') return items;
+  return items.filter(x => x.fundId === _wlFund);
+}
+
 function switchWLTab(tab) {
   ['pl','month','day'].forEach(t => {
     const sec = document.getElementById('wl-'+t);
@@ -1429,13 +1466,11 @@ FUNDS_DATA.forEach(fund => {
       if (cost && cost > 0) pct = (h.pl / cost) * 100;
     }
     if (pct !== null && Math.abs(pct) < 200) {
-      allPL.push({ h, pct, abs: h.pl, fundName: fund.name, fundColor: fund.color });
+      allPL.push({ h, pct, abs: h.pl, fundName: fund.name, fundColor: fund.color, fundId: fund.id });
     }
   });
 });
 allPL.sort((a,b) => b.pct - a.pct);
-const plWinners = allPL.filter(x => x.pct >= 0);
-const plLosers  = [...allPL].filter(x => x.pct < 0).reverse();
 
 // Day change: compare with prev_holdings by ISIN
 const allDay = [];
@@ -1449,13 +1484,11 @@ FUNDS_DATA.forEach(fund => {
     const delta = h.mv_eur - prev.mv_eur;
     const pct   = (delta / prev.mv_eur) * 100;
     if (Math.abs(pct) < 50) {
-      allDay.push({ h, pct, abs: delta, fundName: fund.name, fundColor: fund.color });
+      allDay.push({ h, pct, abs: delta, fundName: fund.name, fundColor: fund.color, fundId: fund.id });
     }
   });
 });
 allDay.sort((a,b) => b.pct - a.pct);
-const dayWinners = allDay.filter(x => x.pct >= 0);
-const dayLosers  = [...allDay].filter(x => x.pct < 0).reverse();
 
 // Month: look up nav_history 30 days back
 const allMonth = [];
@@ -1477,6 +1510,9 @@ const allMonth = [];
 })();
 
 function renderWLPL() {
+  const filtered = _filterByFund(allPL);
+  const plWinners = filtered.filter(x => x.pct >= 0);
+  const plLosers  = filtered.filter(x => x.pct < 0).reverse();
   buildWLRows(plWinners, 'wl-pl-winners');
   buildWLRows(plLosers,  'wl-pl-losers');
   // Bar chart top 10 each side
@@ -1544,6 +1580,9 @@ function renderWLMonth() {
 }
 
 function renderWLDay() {
+  const filtered = _filterByFund(allDay);
+  const dayWinners = filtered.filter(x => x.pct >= 0);
+  const dayLosers  = filtered.filter(x => x.pct < 0).reverse();
   if (!dayWinners.length && !dayLosers.length) {
     ['wl-day-winners','wl-day-losers'].forEach(id => {
       const el = document.getElementById(id);
@@ -2096,7 +2135,7 @@ function sortAllTable(key) {
 setTimeout(renderAllTable, 200);
 
 // ── News ──────────────────────────────────────────────────────────────────
-// Build top 25 companies by combined market value across all funds
+// Build ALL unique companies sorted by combined market value
 (function() {
   const cmap = {};
   FUNDS_DATA.forEach(fund => {
@@ -2110,7 +2149,7 @@ setTimeout(renderAllTable, 200);
         cmap[key].funds.push({ id: fund.id, color: fund.color, short: shortName });
     });
   });
-  window.TOP_COMPANIES = Object.values(cmap).sort((a,b) => b.mv - a.mv).slice(0, 25);
+  window.TOP_COMPANIES = Object.values(cmap).sort((a,b) => b.mv - a.mv);
 })();
 
 function _cleanName(name) {
@@ -2151,26 +2190,50 @@ function _newsCard(item) {
 
 async function _fetchCompanyNews(company) {
   const q = encodeURIComponent(_cleanName(company.name));
-  const rss = `https://news.google.com/rss/search?q=${q}&hl=de&gl=AT&ceid=AT:de`;
-  const url = `https://api.allorigins.win/get?url=${encodeURIComponent(rss)}`;
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 9000);
-  try {
-    const resp = await fetch(url, { signal: ctrl.signal });
-    clearTimeout(t);
-    if (!resp.ok) return [];
-    const json = await resp.json();
-    if (!json.contents) return [];
-    const xml = new DOMParser().parseFromString(json.contents, 'text/xml');
-    return Array.from(xml.querySelectorAll('item')).slice(0, 3).map(el => ({
-      title: el.querySelector('title')?.textContent?.replace(/<[^>]+>/g,'').trim() || '',
-      link: el.querySelector('link')?.textContent?.trim() || '#',
-      pubDate: el.querySelector('pubDate')?.textContent || '',
-      source: el.querySelector('source')?.textContent?.trim() || '',
-      company: company.name,
-      funds: company.funds,
-    })).filter(i => i.title);
-  } catch(e) { clearTimeout(t); return []; }
+  const rssUrl = `https://news.google.com/rss/search?q=${q}&hl=de&gl=AT&ceid=AT:de`;
+
+  // Try rss2json.com first (most reliable, returns structured JSON)
+  const proxies = [
+    `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}&count=3`,
+    `https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`,
+  ];
+
+  for (const url of proxies) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 10000);
+    try {
+      const resp = await fetch(url, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (!resp.ok) continue;
+      const json = await resp.json();
+
+      // rss2json format
+      if (json.items) {
+        return json.items.slice(0, 3).map(el => ({
+          title: (el.title || '').replace(/<[^>]+>/g,'').trim(),
+          link: el.link || '#',
+          pubDate: el.pubDate || '',
+          source: el.author || '',
+          company: company.name,
+          funds: company.funds,
+        })).filter(i => i.title);
+      }
+
+      // allorigins format (XML)
+      if (json.contents) {
+        const xml = new DOMParser().parseFromString(json.contents, 'text/xml');
+        return Array.from(xml.querySelectorAll('item')).slice(0, 3).map(el => ({
+          title: (el.querySelector('title')?.textContent || '').replace(/<[^>]+>/g,'').trim(),
+          link: el.querySelector('link')?.textContent?.trim() || '#',
+          pubDate: el.querySelector('pubDate')?.textContent || '',
+          source: el.querySelector('source')?.textContent?.trim() || '',
+          company: company.name,
+          funds: company.funds,
+        })).filter(i => i.title);
+      }
+    } catch(e) { clearTimeout(t); }
+  }
+  return [];
 }
 
 let _newsLoaded = false, _newsTimer = null, _newsRunning = false;
@@ -2208,7 +2271,7 @@ async function loadNews(force) {
     feed.innerHTML = sorted.slice(0, 60).map(_newsCard).join('') ||
       '<div class="placeholder">Keine Artikel gefunden</div>';
 
-    await new Promise(r => setTimeout(r, 350)); // throttle proxy
+    await new Promise(r => setTimeout(r, 250)); // throttle proxy
   }
 
   const n = allItems.length;
