@@ -242,7 +242,8 @@ def _parse_inventarblatt(ws):
         if any(k in row_str for k in ["RÜCKNAHME", "ANTEILSWERT", "INVENTARWERT JE",
                                        "REDEMPTION PRICE", "NET ASSET VALUE PER",
                                        "PRICE PER UNIT", "VALUE PER SHARE", "UNIT VALUE",
-                                       "ANTEILSPR"]):
+                                       "ANTEILSPR", "RECHENWERT", "FONDSKURS", "KURS JE",
+                                       "PREIS JE", "AUSGABE", "PRICE PER"]):
             for cell in row:
                 if isinstance(cell, (int, float)) and 1 < cell < 100_000:
                     data["nav_per_share"] = float(cell)
@@ -278,6 +279,21 @@ def _parse_inventarblatt(ws):
         for cell in row:
             if isinstance(cell, (datetime, date)):
                 data["report_date"] = str(cell)[:10]
+                break
+
+    # Fallback Rücknahmepreis: Suche Zeilen 30–65 nach plausibler Zahl (10–5000 EUR)
+    # Plausibilitätsprüfung: NAV / Preis muss > 1000 Anteile ergeben
+    if not data.get("nav_per_share") and data.get("nav"):
+        nav_val = data["nav"]
+        for i, row in enumerate(rows[29:65], start=30):
+            for cell in row:
+                if isinstance(cell, (int, float)) and 10 < cell < 5000:
+                    implied_shares = nav_val / cell
+                    if implied_shares > 1000:
+                        data["nav_per_share"] = float(cell)
+                        print(f"    → Preis (Fallback Zeile {i}): {cell} → {implied_shares:,.0f} Anteile impl.")
+                        break
+            if data.get("nav_per_share"):
                 break
 
     print(f"    [BLATT] Ergebnis: {data}")
@@ -814,10 +830,10 @@ tr:hover td {{ background: var(--surface2); }}
     html += '<div class="card"><h3>Fondsvermögen (AuM)</h3><div class="chart-wrap"><canvas id="cov-aum"></canvas></div></div>\n'
     html += '</div>\n'
 
-    # Gemeinsame Positionen
-    html += '<div class="section-title">Gemeinsame Positionen (≥ 2 Fonds)</div>\n'
+    # Alle Positionen aller Fonds
+    html += '<div class="section-title">Alle Positionen</div>\n'
     html += '<div class="card">\n'
-    html += _build_common_holdings_table(funds_data)
+    html += _build_all_holdings_table(funds_data)
     html += '</div>\n'
     html += '</div>\n\n'  # end overview panel
 
@@ -1513,47 +1529,124 @@ setTimeout(calcPerf, 500);
     return html
 
 
-def _build_common_holdings_table(funds_data):
-    """Findet Positionen die in ≥2 Fonds sind."""
-    from collections import defaultdict
-    isin_funds = defaultdict(list)
-    isin_info  = {}
+def _build_all_holdings_table(funds_data):
+    """Alle Positionen aller Fonds mit Haken-Spalten pro Fonds."""
+    # Sammle alle Positionen, dedupliziert per ISIN (oder Name als Fallback)
+    items = {}  # key -> {isin, name, country, sector, funds: {fid: mv_eur}}
     for f in funds_data:
+        fid = f["id"]
         for h in f.get("holdings", []):
-            isin = h.get("isin","")
-            if isin and isin != "None":
-                isin_funds[isin].append(f["id"])
-                isin_info[isin] = h
+            isin = (h.get("isin") or "").strip()
+            name = (h.get("name") or "").strip()
+            if not name or name in ("None",):
+                continue
+            key = isin if (isin and isin not in ("None", "")) else name
+            if key not in items:
+                items[key] = {
+                    "isin": isin if isin not in ("None", "") else "",
+                    "name": name,
+                    "country": h.get("country", "") or "",
+                    "sector": h.get("sector", "") or "",
+                    "funds": {}
+                }
+            items[key]["funds"][fid] = h.get("mv_eur", 0) or 0
 
-    common = [(isin, funds, isin_info[isin]) for isin, funds in isin_funds.items() if len(funds) >= 2]
-    common.sort(key=lambda x: sum(
-        (f.get("holdings") or [{}])[-1].get("mv_eur", 0)
-        for f in funds_data if f["id"] in x[1]
-    ), reverse=True)
+    # Sortierung: zuerst Positionen in mehreren Fonds, dann nach Gesamt-Marktwert
+    sorted_items = sorted(items.values(),
+                          key=lambda x: (-len(x["funds"]), -sum(x["funds"].values())))
 
-    if not common:
-        return '<div class="placeholder">Keine gemeinsamen Positionen gefunden</div>'
+    if not sorted_items:
+        return '<div class="placeholder">Keine Positionen gefunden</div>'
 
-    html = '<div class="tbl-wrap"><table><thead><tr><th>Name</th><th>ISIN</th><th>Land</th><th>Sektor</th>'
-    for f in funds_data:
-        html += f'<th>{f["id"]} MV</th>'
-    html += '</tr></thead><tbody>\n'
+    fund_ids   = [f["id"]   for f in funds_data]
+    fund_short = [f["name"].split("–")[-1].strip()[:18] for f in funds_data]
 
-    for isin, fund_ids, info in common[:30]:
-        html += f'<tr><td>{info["name"][:40]}</td><td style="font-size:11px;color:var(--muted)">{isin}</td>'
-        html += f'<td>{info.get("country","")}</td><td>{info.get("sector","")}</td>'
-        for f in funds_data:
-            h_match = next((h for h in f.get("holdings",[]) if h.get("isin")==isin), None)
-            if h_match:
-                mv = h_match["mv_eur"]
-                pl = h_match.get("pl", 0) or 0
-                cls = "pos" if pl > 0 else ("neg" if pl < 0 else "")
-                html += f'<td><span class="{cls}">{mv/1e6:.2f} Mio. €</span></td>'
+    html = '<div class="tbl-controls">\n'
+    html += '<input type="text" id="search-all" placeholder="Name, ISIN, Land …" oninput="renderAllTable()">\n'
+    html += '<select id="filter-all-funds" onchange="renderAllTable()">\n'
+    html += '<option value="">Alle Fonds</option>\n'
+    html += '<option value="multi">In mehreren Fonds</option>\n'
+    for fid, fname in zip(fund_ids, fund_short):
+        html += f'<option value="{fid}">{fid} – {fname}</option>\n'
+    html += '</select>\n</div>\n'
+
+    html += '<div class="tbl-wrap"><table id="tbl-all">\n'
+    html += '<thead><tr>'
+    html += '<th onclick="sortAllTable(\'name\')">Name ↕</th>'
+    html += '<th onclick="sortAllTable(\'isin\')" style="width:110px">ISIN ↕</th>'
+    html += '<th onclick="sortAllTable(\'country\')">Land ↕</th>'
+    html += '<th onclick="sortAllTable(\'sector\')">Sektor ↕</th>'
+    for fname in fund_short:
+        html += f'<th style="text-align:center;width:90px">{fname}</th>'
+    html += '</tr></thead>\n<tbody id="tbody-all">\n'
+
+    for item in sorted_items:
+        fund_count = len(item["funds"])
+        row_class = ' style="background:var(--surface2)"' if fund_count >= 2 else ""
+        html += f'<tr{row_class} data-name="{item["name"].lower()}" data-isin="{item["isin"].lower()}" data-country="{(item["country"] or "").lower()}" data-funds="{",".join(item["funds"].keys())}">'
+        html += f'<td>{item["name"][:45]}</td>'
+        html += f'<td style="font-size:11px;color:var(--muted)">{item["isin"]}</td>'
+        html += f'<td>{item["country"]}</td>'
+        html += f'<td>{item["sector"]}</td>'
+        for fid in fund_ids:
+            if fid in item["funds"]:
+                mv = item["funds"][fid]
+                html += f'<td style="text-align:center" title="{mv/1e6:.2f} Mio. €"><span style="color:var(--green);font-size:15px;font-weight:700">✓</span></td>'
             else:
-                html += '<td>—</td>'
+                html += '<td style="text-align:center;color:var(--border)">—</td>'
         html += '</tr>\n'
 
-    html += '</tbody></table></div>'
+    html += '</tbody></table></div>\n'
+    html += '<div class="pagination" id="pages-all"></div>\n'
+
+    html += '''<script>
+const _allState = {page:1, sortKey:'name', sortDir:1};
+function renderAllTable() {
+  const tbody = document.getElementById('tbody-all');
+  if (!tbody) return;
+  const q    = (document.getElementById('search-all')?.value || '').toLowerCase();
+  const ff   = document.getElementById('filter-all-funds')?.value || '';
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+
+  const visible = rows.filter(r => {
+    if (q && !r.dataset.name?.includes(q) && !r.dataset.isin?.includes(q) && !r.dataset.country?.includes(q)) return false;
+    if (ff === 'multi' && (r.dataset.funds||'').split(',').filter(Boolean).length < 2) return false;
+    if (ff && ff !== 'multi' && !(r.dataset.funds||'').split(',').includes(ff)) return false;
+    return true;
+  });
+
+  visible.sort((a,b) => {
+    const av = a.dataset[_allState.sortKey] || '', bv = b.dataset[_allState.sortKey] || '';
+    return av < bv ? -_allState.sortDir : av > bv ? _allState.sortDir : 0;
+  });
+
+  const total = visible.length, pages = Math.ceil(total/25), start = (_allState.page-1)*25;
+  rows.forEach(r => r.style.display='none');
+  visible.slice(start, start+25).forEach(r => r.style.display='');
+
+  const pel = document.getElementById('pages-all');
+  if (pel) {
+    pel.innerHTML = '';
+    for (let i=1; i<=Math.min(pages,20); i++) {
+      const b = document.createElement('button');
+      b.className = 'page-btn' + (i===_allState.page ? ' active' : '');
+      b.textContent = i;
+      b.onclick = () => { _allState.page=i; renderAllTable(); };
+      pel.appendChild(b);
+    }
+    const sp = document.createElement('span');
+    sp.style = 'font-size:12px;color:var(--muted);align-self:center;margin-left:8px';
+    sp.textContent = total + ' Positionen';
+    pel.appendChild(sp);
+  }
+}
+function sortAllTable(key) {
+  if (_allState.sortKey===key) _allState.sortDir*=-1;
+  else { _allState.sortKey=key; _allState.sortDir=1; }
+  _allState.page=1; renderAllTable();
+}
+setTimeout(renderAllTable, 200);
+</script>'''
     return html
 
 
