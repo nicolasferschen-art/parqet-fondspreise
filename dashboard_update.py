@@ -873,6 +873,7 @@ tr:hover td {{ background: var(--surface2); }}
     for f in funds_data:
         html += f'  <div class="tab" data-tab="fund-{f["id"]}">{f["name"]}</div>\n'
 
+    html += '  <div class="tab" data-tab="winners">🏆 Gewinner/Verlierer</div>\n'
     html += '  <div class="tab" data-tab="calc">🧮 Rechner</div>\n'
     html += '</div>\n\n'
 
@@ -1167,6 +1168,62 @@ tr:hover td {{ background: var(--surface2); }}
 
         html += '</div>\n\n'  # end fund panel
 
+    # ── Gewinner/Verlierer Panel ─────────────────────────────────────────────
+    html += '<div class="panel" id="panel-winners">\n'
+    html += '''<div style="display:flex;gap:4px;margin-bottom:24px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px;width:fit-content">
+  <button class="wl-tab active" onclick="switchWLTab('pl')" id="wltab-pl" style="padding:8px 20px;border:none;background:var(--accent);color:white;border-radius:7px;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s">Unrealisiertes P/L</button>
+  <button class="wl-tab" onclick="switchWLTab('month')" id="wltab-month" style="padding:8px 20px;border:none;background:transparent;color:var(--muted);border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s">1 Monat</button>
+  <button class="wl-tab" onclick="switchWLTab('day')" id="wltab-day" style="padding:8px 20px;border:none;background:transparent;color:var(--muted);border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s">Heute</button>
+</div>
+'''
+
+    html += '''<!-- P/L Tab -->
+<div id="wl-pl" class="wl-section">
+  <div class="grid-2" style="gap:20px">
+    <div class="card">
+      <h3 style="color:var(--green);margin-bottom:14px">🟢 Top Gewinner — Unrealisiertes P/L %</h3>
+      <div id="wl-pl-winners"></div>
+    </div>
+    <div class="card">
+      <h3 style="color:var(--red);margin-bottom:14px">🔴 Top Verlierer — Unrealisiertes P/L %</h3>
+      <div id="wl-pl-losers"></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div class="chart-wrap tall"><canvas id="wl-chart-pl"></canvas></div>
+  </div>
+</div>
+
+<!-- Month Tab -->
+<div id="wl-month" class="wl-section" style="display:none">
+  <div class="grid-2" style="gap:20px">
+    <div class="card">
+      <h3 style="color:var(--green);margin-bottom:14px">🟢 Top Gewinner — 1 Monat</h3>
+      <div id="wl-month-winners"></div>
+    </div>
+    <div class="card">
+      <h3 style="color:var(--red);margin-bottom:14px">🔴 Top Verlierer — 1 Monat</h3>
+      <div id="wl-month-losers"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Day Tab -->
+<div id="wl-day" class="wl-section" style="display:none">
+  <div class="grid-2" style="gap:20px">
+    <div class="card">
+      <h3 style="color:var(--green);margin-bottom:14px">🟢 Top Gewinner — Heute vs. Gestern</h3>
+      <div id="wl-day-winners"></div>
+    </div>
+    <div class="card">
+      <h3 style="color:var(--red);margin-bottom:14px">🔴 Top Verlierer — Heute vs. Gestern</h3>
+      <div id="wl-day-losers"></div>
+    </div>
+  </div>
+</div>
+'''
+    html += '</div>\n\n'  # end winners panel
+
     # ── Calculator Panel ────────────────────────────────────────────────────
     html += '<div class="panel" id="panel-calc">\n'
     html += '<div class="section-title">🧮 Performance-Rechner</div>\n'
@@ -1287,6 +1344,183 @@ new Chart(document.getElementById('cov-aum'), {
   },
   options: {responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'},
     tooltip:{callbacks:{label:ctx=>ctx.label.split('–')[0]+': '+ctx.raw.toFixed(2)+' Mio. €'}}}}
+});
+
+// ── Gewinner / Verlierer ──────────────────────────────────────────────────
+function switchWLTab(tab) {
+  ['pl','month','day'].forEach(t => {
+    const sec = document.getElementById('wl-'+t);
+    const btn = document.getElementById('wltab-'+t);
+    if (sec) sec.style.display = (t===tab) ? '' : 'none';
+    if (btn) {
+      btn.style.background = t===tab ? 'var(--accent)' : 'transparent';
+      btn.style.color = t===tab ? 'white' : 'var(--muted)';
+    }
+  });
+}
+
+function wlRow(h, pct, abs, fundName, fundColor) {
+  const cls = pct >= 0 ? 'pos' : 'neg';
+  const sign = pct >= 0 ? '+' : '';
+  return `<div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)">
+    <div>
+      <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px">${h.name||h.isin||'—'}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">${h.isin||''} &nbsp;·&nbsp; <span style="color:${fundColor};font-weight:600">${fundName}</span></div>
+    </div>
+    <div style="text-align:right;font-size:13px;color:var(--muted)">${abs !== null ? (abs>=0?'+':'') + fmtEur(abs)+' €' : '—'}</div>
+    <div style="text-align:right;font-size:15px;font-weight:700;min-width:72px" class="${cls}">${sign}${pct.toFixed(2)}%</div>
+  </div>`;
+}
+
+function buildWLRows(items, containerId, limit=10) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!items.length) { el.innerHTML = '<div class="placeholder">Keine Daten verfügbar</div>'; return; }
+  el.innerHTML = items.slice(0, limit).map(i => wlRow(i.h, i.pct, i.abs, i.fundName, i.fundColor)).join('');
+}
+
+// Collect all holdings with pl_pct
+const allPL = [];
+FUNDS_DATA.forEach(fund => {
+  (fund.holdings || []).forEach(h => {
+    if (!h.isin || h.isin === 'None') return;
+    let pct = null;
+    if (h.pl !== null && h.pl !== undefined) {
+      const cost = h.cost && h.cost > 0 ? h.cost : (h.mv_eur && h.pl ? h.mv_eur - h.pl : null);
+      if (cost && cost > 0) pct = (h.pl / cost) * 100;
+    }
+    if (pct !== null && Math.abs(pct) < 200) {
+      allPL.push({ h, pct, abs: h.pl, fundName: fund.name, fundColor: fund.color });
+    }
+  });
+});
+allPL.sort((a,b) => b.pct - a.pct);
+const plWinners = allPL.filter(x => x.pct >= 0);
+const plLosers  = [...allPL].filter(x => x.pct < 0).reverse();
+
+// Day change: compare with prev_holdings by ISIN
+const allDay = [];
+FUNDS_DATA.forEach(fund => {
+  const prevMap = {};
+  (fund.prev_holdings || []).forEach(p => { if (p.isin) prevMap[p.isin] = p; });
+  (fund.holdings || []).forEach(h => {
+    if (!h.isin || h.isin === 'None') return;
+    const prev = prevMap[h.isin];
+    if (!prev || !prev.mv_eur || !h.mv_eur || prev.mv_eur === 0) return;
+    const delta = h.mv_eur - prev.mv_eur;
+    const pct   = (delta / prev.mv_eur) * 100;
+    if (Math.abs(pct) < 50) {
+      allDay.push({ h, pct, abs: delta, fundName: fund.name, fundColor: fund.color });
+    }
+  });
+});
+allDay.sort((a,b) => b.pct - a.pct);
+const dayWinners = allDay.filter(x => x.pct >= 0);
+const dayLosers  = [...allDay].filter(x => x.pct < 0).reverse();
+
+// Month: look up nav_history 30 days back
+const allMonth = [];
+(function() {
+  const today = new Date();
+  const oneMonthAgo = new Date(today.getFullYear(), today.getMonth()-1, today.getDate()).toISOString().slice(0,10);
+  FUNDS_DATA.forEach(fund => {
+    const hist = [...(NAV_HISTORY[fund.id] || [])];
+    (fund.price_history || []).forEach(p => { if (!hist.find(h=>h.date===p.date)) hist.push(p); });
+    hist.sort((a,b) => a.date < b.date ? -1 : 1);
+    const afterMonth = hist.filter(p => p.date >= oneMonthAgo);
+    const current    = hist[hist.length-1];
+    if (!afterMonth.length || !current) return;
+    const ref = afterMonth[0];
+    if (ref.date === current.date || !ref.price || !current.price) return;
+    const pct = (current.price - ref.price) / ref.price * 100;
+    allMonth.push({ fund, ref, current, pct });
+  });
+})();
+
+function renderWLPL() {
+  buildWLRows(plWinners, 'wl-pl-winners');
+  buildWLRows(plLosers,  'wl-pl-losers');
+  // Bar chart top 10 each side
+  const top = [...plWinners.slice(0,10), ...plLosers.slice(0,10)];
+  const ctx = document.getElementById('wl-chart-pl');
+  if (ctx && top.length) {
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: top.map(x => (x.h.name||x.h.isin||'').slice(0,25)),
+        datasets: [{
+          label: 'P/L %',
+          data: top.map(x => x.pct),
+          backgroundColor: top.map(x => x.pct >= 0 ? '#16A34A88' : '#DC262688'),
+          borderColor:     top.map(x => x.pct >= 0 ? '#16A34A'   : '#DC2626'),
+          borderWidth: 1, borderRadius: 3,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+        plugins: { legend: { display: false } },
+        scales: { x: { ticks: { callback: v => v.toFixed(1)+'%' } } }
+      }
+    });
+  }
+}
+
+function renderWLMonth() {
+  const win = allMonth.filter(x=>x.pct>=0).sort((a,b)=>b.pct-a.pct);
+  const los = allMonth.filter(x=>x.pct<0).sort((a,b)=>a.pct-b.pct);
+  const mWinEl = document.getElementById('wl-month-winners');
+  const mLosEl = document.getElementById('wl-month-losers');
+  if (mWinEl) {
+    if (!win.length) { mWinEl.innerHTML = '<div class="placeholder">Keine Daten — wird nach 30 Tagen Dashboard-Laufzeit befüllt</div>'; }
+    else mWinEl.innerHTML = win.map(x => {
+      const sign = x.pct>=0?'+':''; const cls=x.pct>=0?'pos':'neg';
+      return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><div style="font-size:13px;font-weight:600">${x.fund.name}</div><div style="font-size:11px;color:var(--muted)">${x.ref.date} → ${x.current.date}</div></div>
+          <div style="font-size:16px;font-weight:700" class="${cls}">${sign}${x.pct.toFixed(2)}%</div>
+        </div></div>`;
+    }).join('');
+  }
+  if (mLosEl) {
+    if (!los.length) { mLosEl.innerHTML = '<div class="placeholder">Keine Daten — wird nach 30 Tagen Dashboard-Laufzeit befüllt</div>'; }
+    else mLosEl.innerHTML = los.map(x => {
+      const sign=x.pct>=0?'+':''; const cls=x.pct>=0?'pos':'neg';
+      return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><div style="font-size:13px;font-weight:600">${x.fund.name}</div><div style="font-size:11px;color:var(--muted)">${x.ref.date} → ${x.current.date}</div></div>
+          <div style="font-size:16px;font-weight:700" class="${cls}">${sign}${x.pct.toFixed(2)}%</div>
+        </div></div>`;
+    }).join('');
+  }
+  // Note about holdings-level data
+  ['wl-month-winners','wl-month-losers'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el.querySelector('.placeholder')) {
+      const note = document.createElement('div');
+      note.style = 'font-size:11px;color:var(--muted);margin-top:10px;font-style:italic';
+      note.textContent = 'Monatsdaten auf Fondsebene. Positionsgenaue Daten nach ~30 Tagen Laufzeit verfügbar.';
+      el.appendChild(note);
+    }
+  });
+}
+
+function renderWLDay() {
+  if (!dayWinners.length && !dayLosers.length) {
+    ['wl-day-winners','wl-day-losers'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '<div class="placeholder">Keine Vortags-Daten verfügbar (erster Lauf oder Wochenende)</div>';
+    });
+    return;
+  }
+  buildWLRows(dayWinners, 'wl-day-winners');
+  buildWLRows(dayLosers,  'wl-day-losers');
+}
+
+// Init on tab open
+document.querySelectorAll('.tab').forEach(t => {
+  if (t.dataset.tab === 'winners') {
+    t.addEventListener('click', () => { renderWLPL(); renderWLMonth(); renderWLDay(); });
+  }
 });
 
 // ── Per-Fund Charts ────────────────────────────────────────────────────────
@@ -2025,6 +2259,12 @@ def main():
         changes = detect_changes(fund_parsed.get("holdings", []), prev_holdings)
         changes["date_prev"] = prev_fund.get("report_date") if prev_fund else None
         fund_parsed["changes"] = changes
+
+        # Vortags-Holdings für Tagesvergleich (lean – nur nötige Felder)
+        fund_parsed["prev_holdings"] = [
+            {"isin": h.get("isin"), "name": h.get("name"), "mv_eur": h.get("mv_eur"), "pl": h.get("pl")}
+            for h in prev_holdings if h.get("isin") and h["isin"] not in ("None", "")
+        ]
 
         # KPIs berechnen
         fund_parsed = compute_kpis(fund_parsed)
