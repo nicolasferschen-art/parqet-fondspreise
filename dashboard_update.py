@@ -29,11 +29,11 @@ except ImportError:
 # ─── Konfiguration ────────────────────────────────────────────────────────────
 SENDER_EMAIL = "rbi-fondsreporting@rbinternational.com"
 FUNDS = [
-    {"id": "3411", "isin": "AT0000A1QA38", "color": "#1a56db",
+    {"id": "3411", "isin": "AT0000A1QA38", "color": "#F97316",
      "name": "Standortfonds AT"},
-    {"id": "3431", "isin": "AT0000A1Z882", "color": "#d03801",
+    {"id": "3431", "isin": "AT0000A1Z882", "color": "#3B7DD8",
      "name": "Standortfonds DE"},
-    {"id": "3581", "isin": "AT0000A3EAW0", "color": "#046c4e",
+    {"id": "3581", "isin": "AT0000A3EAW0", "color": "#16A34A",
      "name": "Dividends and Interest"},
 ]
 
@@ -239,8 +239,17 @@ def _parse_inventarblatt(ws):
                     break
 
         # Rücknahmepreis / NAV per share
-        # Direkter Match auf "Asset (by DD.MM.YYYY)" — Spalte 7 = Redemption price
+        # Direkter Match auf "Asset (by DD.MM.YYYY)" — Spalte 2 = Anteile, Spalte 7 = Redemption price
         if "ASSET (BY" in row_str or "ASSET(BY" in row_str:
+            # Spalte 2 = Issued/Anteile
+            if len(row) > 2 and row[2] is not None:
+                try:
+                    v = float(row[2])
+                    if v > 1000:
+                        data["shares"] = v
+                        print(f"    → Anteile (Asset-Zeile {i+1}): {v:,.0f}")
+                except (TypeError, ValueError):
+                    pass
             # Spalte 7 = Redemption price, Spalte 5 = Unit Price
             for col_idx in [7, 6, 5]:
                 if col_idx < len(row) and row[col_idx] is not None:
@@ -703,90 +712,131 @@ def generate_html(funds_data, updated_at):
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root {{
-  --bg: #0d1117; --surface: #161b22; --surface2: #21262d;
-  --border: #30363d; --text: #e6edf3; --muted: #8b949e;
-  --blue: #58a6ff; --green: #3fb950; --red: #f85149;
-  --orange: #d29922; --purple: #bc8cff;
+  --bg: #FAFAF8;
+  --surface: #FFFFFF;
+  --surface2: #FFF6EE;
+  --border: #EDE8E1;
+  --text: #1C1917;
+  --muted: #78716C;
+  --accent: #F97316;
+  --accent-light: #FFF0E6;
+  --blue: #3B7DD8;
+  --green: #16A34A;
+  --red: #DC2626;
+  --orange: #EA580C;
 }}
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
 body {{ background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; }}
-a {{ color: var(--blue); text-decoration: none; }}
-.sticky-header {{ position: sticky; top: 0; z-index: 100; background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; }}
-.sticky-header h1 {{ font-size: 18px; font-weight: 700; color: var(--text); }}
-.header-kpis {{ display: flex; gap: 32px; }}
+a {{ color: var(--accent); text-decoration: none; }}
+
+/* Header */
+.sticky-header {{ position: sticky; top: 0; z-index: 100; background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 32px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }}
+.sticky-header h1 {{ font-size: 17px; font-weight: 700; color: var(--text); }}
+.header-kpis {{ display: flex; gap: 36px; }}
 .hkpi {{ text-align: right; }}
-.hkpi .val {{ font-size: 16px; font-weight: 700; }}
-.hkpi .lbl {{ font-size: 11px; color: var(--muted); }}
-.tabs {{ display: flex; gap: 4px; padding: 12px 24px 0; border-bottom: 1px solid var(--border); overflow-x: auto; background: var(--surface); }}
-.tab {{ padding: 8px 16px; border-radius: 6px 6px 0 0; cursor: pointer; font-size: 13px; color: var(--muted); border: 1px solid transparent; border-bottom: none; white-space: nowrap; }}
-.tab.active {{ background: var(--bg); color: var(--text); border-color: var(--border); }}
-.tab:hover:not(.active) {{ color: var(--text); background: var(--surface2); }}
-.panel {{ display: none; padding: 24px; max-width: 1400px; margin: 0 auto; }}
+.hkpi .val {{ font-size: 17px; font-weight: 700; }}
+.hkpi .lbl {{ font-size: 11px; color: var(--muted); margin-top: 1px; }}
+
+/* Tabs */
+.tabs {{ display: flex; gap: 2px; padding: 0 32px; border-bottom: 1px solid var(--border); overflow-x: auto; background: var(--surface); }}
+.tab {{ padding: 12px 18px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; transition: color .15s; }}
+.tab.active {{ color: var(--accent); border-bottom-color: var(--accent); }}
+.tab:hover:not(.active) {{ color: var(--text); }}
+
+/* Panels */
+.panel {{ display: none; padding: 28px 32px; max-width: 1400px; margin: 0 auto; }}
 .panel.active {{ display: block; }}
 .grid-2 {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }}
 .grid-3 {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }}
-.grid-4 {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }}
-.card {{ background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }}
-.card h3 {{ font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }}
-.kpi-val {{ font-size: 26px; font-weight: 700; }}
-.kpi-sub {{ font-size: 12px; color: var(--muted); margin-top: 4px; }}
-.pos {{ color: var(--green); }} .neg {{ color: var(--red); }}
-.section-title {{ font-size: 16px; font-weight: 600; margin: 24px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }}
+.grid-4 {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }}
+
+/* Cards */
+.card {{ background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }}
+.card h3 {{ font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 10px; }}
+.kpi-val {{ font-size: 28px; font-weight: 700; letter-spacing: -.5px; }}
+.kpi-sub {{ font-size: 12px; color: var(--muted); margin-top: 5px; }}
+
+/* Colors */
+.pos {{ color: var(--green); }}
+.neg {{ color: var(--red); }}
+
+/* Section titles */
+.section-title {{ font-size: 15px; font-weight: 600; margin: 28px 0 14px; color: var(--text); }}
+
+/* Charts */
 .chart-wrap {{ position: relative; height: 280px; }}
 .chart-wrap.tall {{ height: 360px; }}
+
+/* Changes */
 .changes-grid {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }}
-.change-card {{ background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }}
-.change-card h4 {{ font-size: 12px; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }}
-.change-item {{ padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12px; }}
+.change-card {{ background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }}
+.change-card h4 {{ font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }}
+.change-item {{ padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 12px; }}
 .change-item:last-child {{ border-bottom: none; }}
-.change-item .ci-name {{ font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }}
-.change-item .ci-sub {{ color: var(--muted); font-size: 11px; }}
-.badge-new  {{ background: #1f6031; color: #3fb950; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; }}
-.badge-out  {{ background: #3d1a19; color: #f85149; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; }}
-.badge-up   {{ background: #1a3d26; color: #3fb950; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; }}
-.badge-down {{ background: #3d2e1a; color: #d29922; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; }}
-.placeholder {{ padding: 20px; text-align: center; color: var(--muted); font-size: 12px; font-style: italic; }}
+.change-item .ci-name {{ font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; color: var(--text); }}
+.change-item .ci-sub {{ color: var(--muted); font-size: 11px; margin-top: 2px; }}
+.badge-new  {{ background: #DCFCE7; color: #16A34A; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; }}
+.badge-out  {{ background: #FEE2E2; color: #DC2626; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; }}
+.badge-up   {{ background: #DCFCE7; color: #16A34A; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; }}
+.badge-down {{ background: #FFF7ED; color: #EA580C; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; }}
+.placeholder {{ padding: 24px; text-align: center; color: var(--muted); font-size: 13px; font-style: italic; }}
+
+/* Tables */
 table {{ width: 100%; border-collapse: collapse; font-size: 13px; }}
-th {{ text-align: left; padding: 8px 10px; border-bottom: 2px solid var(--border); color: var(--muted); font-size: 11px; text-transform: uppercase; cursor: pointer; user-select: none; white-space: nowrap; }}
+th {{ text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; cursor: pointer; user-select: none; white-space: nowrap; }}
 th:hover {{ color: var(--text); }}
-td {{ padding: 7px 10px; border-bottom: 1px solid var(--border); }}
+td {{ padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text); }}
+tr:last-child td {{ border-bottom: none; }}
 tr:hover td {{ background: var(--surface2); }}
 .tbl-wrap {{ overflow-x: auto; max-height: 520px; overflow-y: auto; }}
-.tbl-controls {{ display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }}
-.tbl-controls input, .tbl-controls select {{ background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 6px; font-size: 13px; }}
+.tbl-controls {{ display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }}
+.tbl-controls input, .tbl-controls select {{ background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 7px 12px; border-radius: 8px; font-size: 13px; outline: none; }}
+.tbl-controls input:focus, .tbl-controls select:focus {{ border-color: var(--accent); }}
 .tbl-controls input {{ flex: 1; min-width: 200px; }}
-.pagination {{ display: flex; gap: 6px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }}
-.page-btn {{ background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }}
-.page-btn.active {{ background: var(--blue); color: #000; border-color: var(--blue); }}
-.modal-overlay {{ display: none; position: fixed; inset: 0; background: #000c; z-index: 999; align-items: center; justify-content: center; }}
+.pagination {{ display: flex; gap: 5px; justify-content: center; margin-top: 14px; flex-wrap: wrap; align-items: center; }}
+.page-btn {{ background: var(--surface); border: 1px solid var(--border); color: var(--muted); padding: 5px 11px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all .15s; }}
+.page-btn:hover {{ border-color: var(--accent); color: var(--accent); }}
+.page-btn.active {{ background: var(--accent); color: white; border-color: var(--accent); font-weight: 600; }}
+
+/* Modal */
+.modal-overlay {{ display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 999; align-items: center; justify-content: center; backdrop-filter: blur(2px); }}
 .modal-overlay.open {{ display: flex; }}
-.modal {{ background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; max-width: 680px; width: 95%; max-height: 85vh; overflow-y: auto; }}
-.modal h2 {{ font-size: 18px; margin-bottom: 16px; }}
-.modal-kpis {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }}
-.modal-kpi {{ background: var(--surface2); border-radius: 8px; padding: 12px; }}
+.modal {{ background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px; max-width: 680px; width: 95%; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }}
+.modal h2 {{ font-size: 18px; font-weight: 700; margin-bottom: 16px; }}
+.modal-kpis {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }}
+.modal-kpi {{ background: var(--surface2); border-radius: 10px; padding: 12px; }}
 .modal-kpi .lbl {{ font-size: 11px; color: var(--muted); margin-bottom: 4px; }}
-.modal-kpi .val {{ font-size: 18px; font-weight: 700; }}
-.modal-links {{ display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }}
-.modal-links a {{ background: var(--surface2); border: 1px solid var(--border); padding: 6px 14px; border-radius: 6px; font-size: 12px; color: var(--text); }}
-.modal-links a:hover {{ border-color: var(--blue); color: var(--blue); }}
-.modal-close {{ float: right; cursor: pointer; color: var(--muted); font-size: 20px; line-height: 1; }}
+.modal-kpi .val {{ font-size: 17px; font-weight: 700; }}
+.modal-links {{ display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }}
+.modal-links a {{ background: var(--bg); border: 1px solid var(--border); padding: 6px 14px; border-radius: 8px; font-size: 12px; color: var(--text); transition: border-color .15s; }}
+.modal-links a:hover {{ border-color: var(--accent); color: var(--accent); }}
+.modal-close {{ float: right; cursor: pointer; color: var(--muted); font-size: 22px; line-height: 1; }}
 .modal-close:hover {{ color: var(--text); }}
-.fund-card-link {{ cursor: pointer; transition: transform .15s; }}
-.fund-card-link:hover {{ transform: translateY(-2px); border-color: #58a6ff66; }}
-.bar-row {{ display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }}
-.bar-label {{ width: 140px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }}
-.bar-track {{ flex: 1; height: 18px; background: var(--surface2); border-radius: 4px; overflow: hidden; }}
-.bar-fill {{ height: 100%; border-radius: 4px; }}
-.bar-val {{ width: 80px; text-align: right; font-size: 12px; color: var(--muted); flex-shrink: 0; }}
+
+/* Fund cards */
+.fund-card-link {{ cursor: pointer; transition: transform .15s, box-shadow .15s; }}
+.fund-card-link:hover {{ transform: translateY(-2px); box-shadow: 0 4px 16px rgba(249,115,22,0.12); border-color: var(--accent); }}
+
+/* Bars */
+.bar-row {{ display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }}
+.bar-label {{ width: 140px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; color: var(--text); }}
+.bar-track {{ flex: 1; height: 16px; background: var(--surface2); border-radius: 6px; overflow: hidden; }}
+.bar-fill {{ height: 100%; border-radius: 6px; opacity: 0.85; }}
+.bar-val {{ width: 60px; text-align: right; font-size: 12px; color: var(--muted); flex-shrink: 0; }}
+
 .updated {{ font-size: 11px; color: var(--muted); }}
+
 /* Tooltips */
-.tip {{ border-bottom: 1px dashed var(--muted); cursor: help; position: relative; display: inline; }}
-.tip::after {{ content: attr(data-tip); position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); background: #1a1d2e; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 12px; color: var(--text); white-space: normal; min-width: 220px; max-width: 300px; line-height: 1.5; z-index: 500; opacity: 0; pointer-events: none; transition: opacity .2s; box-shadow: 0 4px 20px #00000066; }}
+.tip {{ border-bottom: 1px dashed var(--border); cursor: help; position: relative; display: inline; }}
+.tip::after {{ content: attr(data-tip); position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); background: var(--text); border-radius: 8px; padding: 8px 12px; font-size: 12px; color: white; white-space: normal; min-width: 220px; max-width: 300px; line-height: 1.5; z-index: 500; opacity: 0; pointer-events: none; transition: opacity .2s; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }}
 .tip:hover::after {{ opacity: 1; }}
+
 @media (max-width: 768px) {{
   .grid-2, .grid-3, .grid-4, .changes-grid {{ grid-template-columns: 1fr; }}
   .header-kpis {{ display: none; }}
   .modal-kpis {{ grid-template-columns: 1fr 1fr; }}
+  .panel {{ padding: 16px; }}
+  .sticky-header, .tabs {{ padding-left: 16px; padding-right: 16px; }}
 }}
 </style>
 </head>
@@ -1168,8 +1218,9 @@ function fmtEur(n, dec=2) {
 function fmtPct(n) { return n >= 0 ? '+'+n.toFixed(2)+'%' : n.toFixed(2)+'%'; }
 
 // ── Chart defaults ─────────────────────────────────────────────────────────
-Chart.defaults.color = '#8b949e';
-Chart.defaults.borderColor = '#30363d';
+Chart.defaults.color = '#78716C';
+Chart.defaults.borderColor = '#EDE8E1';
+Chart.defaults.backgroundColor = '#FFFFFF';
 Chart.defaults.font.family = "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
 Chart.defaults.font.size = 12;
 
