@@ -709,16 +709,19 @@ def summarize_news(company_name, articles, anthropic_key):
         for a in articles
     )
     prompt = (
-        f"Du bist Redakteur eines internen Fondsdashboards für institutionelle Investoren.\n\n"
-        f"Unternehmen: {company_name}\n"
+        f"Du schreibst für Investoren, die {company_name} im Depot haben und wissen wollen, "
+        f"was gerade mit ihrer Beteiligung passiert.\n\n"
         f"Schlagzeilen:\n{headlines}\n\n"
-        f"Aufgabe: Wähle nur die Schlagzeilen aus, die wirklich relevant für dieses Unternehmen sind "
-        f"(Geschäftsentwicklung, Strategie, Produkte, Management, Märkte, Regulierung, M&A, Ergebnisse). "
-        f"Ignoriere komplett irrelevante Meldungen (falscher Kontext, Lifestyle, Gaming, off-topic).\n\n"
-        f"Falls keine einzige Schlagzeile relevant ist, antworte nur mit: IRRELEVANT\n\n"
-        f"Sonst antworte exakt in diesem Format:\n"
-        f"HEADLINE: [prägnante Überschrift auf Deutsch]\n"
-        f"TEXT: [2–6 Sätze, locker-informativer Fließtext auf Deutsch, direkt nutzbar]"
+        f"Aufgabe: Wähle nur Schlagzeilen aus, die wirklich zu {company_name} als Unternehmen passen "
+        f"(Geschäftsentwicklung, Zahlen, Strategie, Produkte, Management, M&A, Märkte, Regulierung). "
+        f"Ignoriere alles was nicht direkt das Unternehmen betrifft.\n\n"
+        f"Falls keine einzige Schlagzeile passt: antworte nur mit IRRELEVANT\n\n"
+        f"Sonst schreib eine kurze, lebendige Meldung — so als würdest du einem Freund erzählen, "
+        f"was mit seiner Aktie los ist. Gerne einen interessanten Detail oder Fun Fact einbauen. "
+        f"Direkt, locker, informativ. Kein Börsenjargon-Kauderwelsch.\n\n"
+        f"Format (exakt zwei Zeilen):\n"
+        f"HEADLINE: [eine Zeile, knackige Überschrift auf Deutsch]\n"
+        f"TEXT: [2–5 Sätze Fließtext auf Deutsch]"
     )
     body = json.dumps({
         "model": "claude-haiku-4-5-20251001",
