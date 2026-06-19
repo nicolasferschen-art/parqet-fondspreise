@@ -622,13 +622,14 @@ def detect_changes(current_holdings, prev_holdings):
     decreased = []
     for isin in curr_map:
         if isin in prev_map:
-            c_w = curr_map[isin].get("mv_eur", 0)
-            p_w = prev_map[isin].get("mv_eur", 0)
-            if c_w and p_w and abs(c_w - p_w) / max(abs(p_w), 1) > 0.005:
-                diff_pct = (c_w - p_w) / abs(p_w) * 100
+            # Stückzahl vergleichen (Kauf/Verkauf durch Fondsmanager)
+            c_qty = curr_map[isin].get("qty") or 0
+            p_qty = prev_map[isin].get("qty") or 0
+            if c_qty and p_qty and abs(c_qty - p_qty) / max(abs(p_qty), 1) > 0.005:
+                diff_pct = (c_qty - p_qty) / abs(p_qty) * 100
                 entry = {**curr_map[isin], "change_pct": round(diff_pct, 2),
-                         "prev_mv": p_w, "curr_mv": c_w}
-                if c_w > p_w:
+                         "prev_qty": p_qty, "curr_qty": c_qty}
+                if c_qty > p_qty:
                     increased.append(entry)
                 else:
                     decreased.append(entry)
@@ -1184,7 +1185,7 @@ tr:hover td {{ background: var(--surface2); }}
                 for item in items[:8]:
                     sub = ""
                     if items_key in ("increased", "decreased") and item.get("change_pct"):
-                        sub = f'{pl_sign(item["change_pct"])}{item["change_pct"]:.1f}% MV-Änderung'
+                        sub = f'{pl_sign(item["change_pct"])}{item["change_pct"]:.1f}% Stückzahl'
                     elif item.get("mv_eur"):
                         sub = f'{fmt_eur(item["mv_eur"])} €'
                     html += f'<div class="change-item"><div class="ci-name">{item.get("name","—")}</div><div class="ci-sub">{sub}</div></div>\n'
@@ -2419,7 +2420,8 @@ def main():
 
         # Vortags-Holdings für Tagesvergleich (lean – nur nötige Felder)
         fund_parsed["prev_holdings"] = [
-            {"isin": h.get("isin"), "name": h.get("name"), "mv_eur": h.get("mv_eur"), "pl": h.get("pl")}
+            {"isin": h.get("isin"), "name": h.get("name"), "mv_eur": h.get("mv_eur"),
+             "pl": h.get("pl"), "qty": h.get("qty")}
             for h in prev_holdings if h.get("isin") and h["isin"] not in ("None", "")
         ]
 
