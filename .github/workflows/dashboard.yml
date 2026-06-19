@@ -3,7 +3,7 @@ name: IQAM Dashboard Update
 on:
   schedule:
     # Täglich Mo–Fr um 13:30 UTC (= 15:30 CEST / 14:30 CET)
-    - cron: "30 13 * * 1-5"
+    - cron: "0 7-17 * * 1-5"
   push:
     branches: [main]
     paths:
