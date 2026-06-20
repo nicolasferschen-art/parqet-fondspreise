@@ -710,19 +710,18 @@ def summarize_news(company_name, articles, anthropic_key):
         for a in articles
     )
     prompt = (
-        f"Du schreibst für Investoren, die {company_name} im Depot haben und wissen wollen, "
-        f"was gerade mit ihrer Beteiligung passiert.\n\n"
+        f"Du fasst Nachrichtenüberschriften für Investoren zusammen. "
+        f"Unternehmen: {company_name}\n\n"
         f"Schlagzeilen:\n{headlines}\n\n"
-        f"Aufgabe: Wähle nur Schlagzeilen aus, die wirklich zu {company_name} als Unternehmen passen "
-        f"(Geschäftsentwicklung, Zahlen, Strategie, Produkte, Management, M&A, Märkte, Regulierung). "
-        f"Ignoriere alles was nicht direkt das Unternehmen betrifft.\n\n"
-        f"Falls keine einzige Schlagzeile passt: antworte nur mit IRRELEVANT\n\n"
-        f"Sonst schreib eine kurze, lebendige Meldung — so als würdest du einem Freund erzählen, "
-        f"was mit seiner Aktie los ist. Gerne einen interessanten Detail oder Fun Fact einbauen. "
-        f"Direkt, locker, informativ. Kein Börsenjargon-Kauderwelsch.\n\n"
-        f"Format (exakt zwei Zeilen):\n"
-        f"HEADLINE: [eine Zeile, knackige Überschrift auf Deutsch]\n"
-        f"TEXT: [2–5 Sätze Fließtext auf Deutsch]"
+        f"WICHTIG: Fasse NUR zusammen, was in den Schlagzeilen steht. "
+        f"Erfinde KEINE Fakten, Zahlen, Namen oder Details die nicht explizit in den Titeln vorkommen. "
+        f"Wenn etwas unklar ist, lass es weg. Keine Spekulation, keine Interpretation.\n\n"
+        f"Wähle nur Schlagzeilen die wirklich zu {company_name} passen "
+        f"(Geschäft, Strategie, Zahlen, Produkte, Management, Märkte). "
+        f"Falls keine passt: antworte nur mit IRRELEVANT\n\n"
+        f"Sonst antworte in diesem Format:\n"
+        f"HEADLINE: [knackige Überschrift auf Deutsch, nur aus den Titeln]\n"
+        f"TEXT: [2–4 Sätze, locker und direkt, nur gesicherte Fakten aus den Schlagzeilen]"
     )
     body = json.dumps({
         "model": "claude-haiku-4-5-20251001",
