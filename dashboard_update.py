@@ -705,23 +705,27 @@ def summarize_news(company_name, articles, anthropic_key):
     """Fasst News-Schlagzeilen via Claude Haiku zu Überschrift + Fließtext zusammen."""
     if not anthropic_key or not articles:
         return None
-    headlines = "\n".join(
-        f"- {a['title']}" + (f" ({a['source']})" if a.get('source') else "")
-        for a in articles
-    )
+    articles_text = ""
+    for a in articles:
+        content = a.get("desc") or a.get("title", "")
+        if a.get("title") and a.get("desc") and a["title"] not in a["desc"]:
+            content = f"{a['title']} — {a['desc']}"
+        src = f" ({a['source']})" if a.get("source") else ""
+        articles_text += f"- {content}{src}\n"
+
     prompt = (
-        f"Du fasst Nachrichtenüberschriften für Investoren zusammen. "
+        f"Du fasst Nachrichtenartikel für Investoren zusammen. "
         f"Unternehmen: {company_name}\n\n"
-        f"Schlagzeilen:\n{headlines}\n\n"
-        f"WICHTIG: Fasse NUR zusammen, was in den Schlagzeilen steht. "
-        f"Erfinde KEINE Fakten, Zahlen, Namen oder Details die nicht explizit in den Titeln vorkommen. "
-        f"Wenn etwas unklar ist, lass es weg. Keine Spekulation, keine Interpretation.\n\n"
-        f"Wähle nur Schlagzeilen die wirklich zu {company_name} passen "
+        f"Artikel:\n{articles_text}\n"
+        f"WICHTIG: Verwende NUR Informationen die explizit im obigen Text stehen. "
+        f"Erfinde KEINE Fakten, Zahlen oder Details die dort nicht vorkommen. "
+        f"Wenn etwas unklar ist, lass es weg.\n\n"
+        f"Wähle nur Artikel die wirklich zu {company_name} passen "
         f"(Geschäft, Strategie, Zahlen, Produkte, Management, Märkte). "
-        f"Falls keine passt: antworte nur mit IRRELEVANT\n\n"
+        f"Falls keiner passt: antworte nur mit IRRELEVANT\n\n"
         f"Sonst antworte in diesem Format:\n"
-        f"HEADLINE: [knackige Überschrift auf Deutsch, nur aus den Titeln]\n"
-        f"TEXT: [2–4 Sätze, locker und direkt, nur gesicherte Fakten aus den Schlagzeilen]"
+        f"HEADLINE: [knackige Überschrift auf Deutsch]\n"
+        f"TEXT: [2–4 Sätze, locker und direkt, nur gesicherte Fakten aus den Artikeln]"
     )
     body = json.dumps({
         "model": "claude-haiku-4-5-20251001",
@@ -823,8 +827,9 @@ def fetch_all_news(companies, max_per_company=8, request_timeout=5, anthropic_ke
                 link  = (el.findtext("link") or "#").strip()
                 pub   = (el.findtext("pubDate") or "").strip()
                 src   = getattr(el.find("source"), "text", "") or ""
+                desc  = re.sub(r"<[^>]+>|<!\[CDATA\[|\]\]>", "", el.findtext("description") or "").strip()
                 if title and _is_finance_relevant(title, src):
-                    arts.append({"title": title, "link": link, "pubDate": pub, "source": src})
+                    arts.append({"title": title, "link": link, "pubDate": pub, "source": src, "desc": desc})
             if arts:
                 do_summary = summarize and summary_count < max_summaries
                 summary = None
