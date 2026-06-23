@@ -714,18 +714,22 @@ def summarize_news(company_name, articles, anthropic_key):
         articles_text += f"- {content}{src}\n"
 
     prompt = (
-        f"Du fasst Nachrichtenartikel für Investoren zusammen. "
+        f"Du fasst Nachrichtenartikel für Investoren zusammen.\n"
         f"Unternehmen: {company_name}\n\n"
-        f"Artikel:\n{articles_text}\n"
-        f"WICHTIG: Verwende NUR Informationen die explizit im obigen Text stehen. "
-        f"Erfinde KEINE Fakten, Zahlen oder Details die dort nicht vorkommen. "
-        f"Wenn etwas unklar ist, lass es weg.\n\n"
-        f"Wähle nur Artikel die wirklich zu {company_name} passen "
-        f"(Geschäft, Strategie, Zahlen, Produkte, Management, Märkte). "
-        f"Falls keiner passt: antworte nur mit IRRELEVANT\n\n"
-        f"Sonst antworte in diesem Format:\n"
-        f"HEADLINE: [knackige Überschrift auf Deutsch]\n"
-        f"TEXT: [2–4 Sätze, locker und direkt, nur gesicherte Fakten aus den Artikeln]"
+        f"Artikel:\n{articles_text}\n\n"
+        f"STRENGE REGELN – lies sie sorgfältig:\n"
+        f"1. Verwende AUSSCHLIESSLICH Informationen die WÖRTLICH im obigen Text stehen.\n"
+        f"2. VERBOTEN ohne expliziten Beleg im Text:\n"
+        f"   - Indexänderungen (ATX, DAX, MSCI etc. Aufnahme oder Ausschluss)\n"
+        f"   - Übernahmen, Fusionen, M&A\n"
+        f"   - CEO- oder Managementwechsel\n"
+        f"   - Konkrete Zahlen (Umsatz, Gewinn, Kurs) die nicht im Text stehen\n"
+        f"   - Zukunftsprognosen die nicht zitiert werden\n"
+        f"3. Im Zweifel: weglassen oder IRRELEVANT antworten.\n"
+        f"4. Wenn kein Artikel wirklich zu {company_name} passt (Geschäft, Zahlen, Strategie): antworte nur mit IRRELEVANT\n\n"
+        f"Antworte in diesem Format:\n"
+        f"HEADLINE: [präzise Überschrift, nur was belegt ist]\n"
+        f"TEXT: [2–3 Sätze, direkt, nur belegte Fakten – lieber kürzer als spekulativ]"
     )
     body = json.dumps({
         "model": "claude-haiku-4-5-20251001",
