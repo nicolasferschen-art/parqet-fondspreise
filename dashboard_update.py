@@ -740,7 +740,7 @@ def summarize_news(company_name, articles, anthropic_key):
         "https://api.anthropic.com/v1/messages", data=body, method="POST",
         headers={
             "x-api-key": anthropic_key,
-            "anthropic-version": "2024-06-01",
+            "anthropic-version": "2023-06-01",
             "content-type": "application/json; charset=utf-8",
         },
     )
@@ -803,7 +803,7 @@ def _is_finance_relevant(title, source):
     return True
 
 
-def fetch_all_news(companies, max_per_company=8, request_timeout=5, anthropic_key=None, max_summaries=100):
+def fetch_all_news(companies, max_per_company=8, request_timeout=5, anthropic_key=None, max_summaries=80, prev_news_data=None):
     """Fetcht Finanz-News via Google News RSS für alle Unternehmen, optional mit Haiku-Zusammenfassung."""
     import xml.etree.ElementTree as ET
     import time as _time
@@ -841,13 +841,21 @@ def fetch_all_news(companies, max_per_company=8, request_timeout=5, anthropic_ke
                 if title and _is_finance_relevant(title, src):
                     arts.append({"title": title, "link": link, "pubDate": pub, "source": src, "desc": desc})
             if arts:
-                do_summary = summarize and summary_count < max_summaries
-                summary = None
-                if do_summary:
-                    _time.sleep(1.5)  # Rate-limit: max ~40 Requests/Min
-                    summary = summarize_news(co["name"], arts, anthropic_key)
-                if summary:
-                    summary_count += 1
+                # Article-Caching: Summary wiederverwenden wenn Top-Artikel unverändert
+                prev = (prev_news_data or {}).get(key, {})
+                prev_top = ((prev.get("articles") or [{}])[0]).get("title", "")
+                curr_top = arts[0].get("title", "")
+                if prev_top and curr_top == prev_top and prev.get("summary"):
+                    summary = prev["summary"]
+                    print(f"    ♻️  Cache für {co['name'][:35]}")
+                else:
+                    do_summary = summarize and summary_count < max_summaries
+                    summary = None
+                    if do_summary:
+                        _time.sleep(1.5)  # Rate-limit
+                        summary = summarize_news(co["name"], arts, anthropic_key)
+                    if summary:
+                        summary_count += 1
                 news_data[key] = {
                     "company": co["name"],
                     "funds": co["funds"],
@@ -2495,145 +2503,177 @@ def load_nav_history(token, repo, branch="main"):
         return {}
 
 
+def load_json_from_github(token, repo, path, branch="main"):
+    """Lädt eine beliebige JSON-Datei aus dem Repo."""
+    try:
+        req = Request(
+            f"https://api.github.com/repos/{repo}/contents/{path}?ref={branch}",
+            headers={"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"},
+        )
+        with urlopen(req) as resp:
+            meta = json.loads(resp.read())
+            content = base64.b64decode(meta["content"]).decode()
+            return json.loads(content)
+    except Exception:
+        return None
+
+
 # ─── Main ─────────────────────────────────────────────────────────────────────
 def main():
     github_token = os.environ.get("GITHUB_TOKEN", "")
-    github_repo  = os.environ.get("GITHUB_REPOSITORY", "")  # z.B. "user/repo"
+    github_repo  = os.environ.get("GITHUB_REPOSITORY", "")
+    RUN_MODE     = os.environ.get("RUN_MODE", "full").lower()  # "full" oder "news"
 
     print("=" * 60)
-    print(f"🚀 IQAM Dashboard Update – {date.today()}")
+    print(f"🚀 IQAM Dashboard Update – {date.today()} [{RUN_MODE.upper()}]")
     print("=" * 60)
 
-    # 1. Token holen
-    access_token = get_access_token()
-
-    # 2. Prev data + NAV-Historie + Run-Log laden
+    # 2. Cached data laden
     prev_data = {}
     nav_history = {}
     run_log = []
     if github_token and github_repo:
-        prev_data = load_prev_data(github_token, github_repo)
         nav_history = load_nav_history(github_token, github_repo)
         run_log = load_run_log(github_token, github_repo)
 
-    # 3. Mails finden
-    fund_mails = find_latest_emails(access_token)
+    if RUN_MODE == "news":
+        # ── News-only Run: Fondsdaten aus Cache laden ──────────────────────────
+        print("\n📂 News-only Run: Lade gecachte Fondsdaten…")
+        cached = load_json_from_github(github_token, github_repo, "docs/prev_data.json")
+        if not cached:
+            print("❌ Keine gecachten Fondsdaten gefunden. Bitte zuerst Full-Run ausführen.")
+            sys.exit(1)
+        funds_data = list(cached.values())
+        print(f"  ✅ {len(funds_data)} Fonds aus Cache geladen")
+    else:
+        # ── Full Run: Fondsdaten frisch aus Email holen ────────────────────────
+        # 1. MS Token
+        access_token = get_access_token()
 
-    # 4. Pro Fund Excel laden + parsen
-    funds_data = []
-    for fund_meta in FUNDS:
-        fid        = fund_meta["id"]
-        mail_entry = fund_mails.get(fid, {})
-        mail_blatt = mail_entry.get("blatt")
-        mail_liste = mail_entry.get("liste")
+        # 2. Prev data für Änderungserkennung
+        if github_token and github_repo:
+            prev_data = load_prev_data(github_token, github_repo)
 
-        if not mail_blatt and not mail_liste:
-            print(f"⚠️  Keine Mail für Fund {fid} gefunden!")
+        # 3. Mails finden
+        fund_mails = find_latest_emails(access_token)
+
+    # 4. Pro Fund Excel laden + parsen (nur Full-Run)
+    if RUN_MODE != "news":
+        funds_data = []
+        for fund_meta in FUNDS:
+            fid        = fund_meta["id"]
+            mail_entry = fund_mails.get(fid, {})
+            mail_blatt = mail_entry.get("blatt")
+            mail_liste = mail_entry.get("liste")
+    
+            if not mail_blatt and not mail_liste:
+                print(f"⚠️  Keine Mail für Fund {fid} gefunden!")
+                prev_fund = prev_data.get(fid, {})
+                if prev_fund:
+                    print(f"   → Verwende gestrige Daten für {fid}")
+                    funds_data.append({**fund_meta, **prev_fund, "changes": {}})
+                continue
+    
+            fund_parsed = {}
+    
+            # INVENTARBLATT → NAV, Preis, YTD, FY
+            if mail_blatt:
+                print(f"\n📋 Fund {fid} BLATT: {mail_blatt['subject'][:55]}")
+                xlsx_bytes, filename = download_attachment(access_token, mail_blatt["id"], ".xlsx")
+                if xlsx_bytes:
+                    print(f"   Parsing {filename}…")
+                    try:
+                        blatt_data = parse_excel(xlsx_bytes, fid)
+                        fund_parsed.update(blatt_data)
+                    except Exception as e:
+                        print(f"   ❌ BLATT Parse-Fehler: {e}")
+                        traceback.print_exc()
+    
+            # INVENTARLISTE → Holdings, Länder, Währungen, Sektoren
+            mail_for_holdings = mail_liste or mail_blatt  # Fallback auf BLATT wenn keine LISTE
+            if mail_for_holdings:
+                print(f"\n📊 Fund {fid} LISTE: {mail_for_holdings['subject'][:55]}")
+                xlsx_bytes, filename = download_attachment(access_token, mail_for_holdings["id"], ".xlsx")
+                if xlsx_bytes:
+                    print(f"   Parsing {filename}…")
+                    try:
+                        liste_data = parse_excel(xlsx_bytes, fid)
+                        # Merge: LISTE-Daten überschreiben nur Holdings/Allokation, nicht NAV
+                        for key in ["holdings", "countries", "currencies", "sectors"]:
+                            if key in liste_data:
+                                fund_parsed[key] = liste_data[key]
+                        # NAV aus BLATT bevorzugen — nur übernehmen wenn noch nicht gesetzt
+                        for key in ["nav", "nav_per_share", "shares", "perf_ytd", "perf_fy", "report_date"]:
+                            if key not in fund_parsed and key in liste_data:
+                                fund_parsed[key] = liste_data[key]
+                    except Exception as e:
+                        print(f"   ❌ LISTE Parse-Fehler: {e}")
+                        traceback.print_exc()
+    
+            # Vortags-Preis aus prev_data
             prev_fund = prev_data.get(fid, {})
-            if prev_fund:
-                print(f"   → Verwende gestrige Daten für {fid}")
-                funds_data.append({**fund_meta, **prev_fund, "changes": {}})
-            continue
-
-        fund_parsed = {}
-
-        # INVENTARBLATT → NAV, Preis, YTD, FY
-        if mail_blatt:
-            print(f"\n📋 Fund {fid} BLATT: {mail_blatt['subject'][:55]}")
-            xlsx_bytes, filename = download_attachment(access_token, mail_blatt["id"], ".xlsx")
-            if xlsx_bytes:
-                print(f"   Parsing {filename}…")
-                try:
-                    blatt_data = parse_excel(xlsx_bytes, fid)
-                    fund_parsed.update(blatt_data)
-                except Exception as e:
-                    print(f"   ❌ BLATT Parse-Fehler: {e}")
-                    traceback.print_exc()
-
-        # INVENTARLISTE → Holdings, Länder, Währungen, Sektoren
-        mail_for_holdings = mail_liste or mail_blatt  # Fallback auf BLATT wenn keine LISTE
-        if mail_for_holdings:
-            print(f"\n📊 Fund {fid} LISTE: {mail_for_holdings['subject'][:55]}")
-            xlsx_bytes, filename = download_attachment(access_token, mail_for_holdings["id"], ".xlsx")
-            if xlsx_bytes:
-                print(f"   Parsing {filename}…")
-                try:
-                    liste_data = parse_excel(xlsx_bytes, fid)
-                    # Merge: LISTE-Daten überschreiben nur Holdings/Allokation, nicht NAV
-                    for key in ["holdings", "countries", "currencies", "sectors"]:
-                        if key in liste_data:
-                            fund_parsed[key] = liste_data[key]
-                    # NAV aus BLATT bevorzugen — nur übernehmen wenn noch nicht gesetzt
-                    for key in ["nav", "nav_per_share", "shares", "perf_ytd", "perf_fy", "report_date"]:
-                        if key not in fund_parsed and key in liste_data:
-                            fund_parsed[key] = liste_data[key]
-                except Exception as e:
-                    print(f"   ❌ LISTE Parse-Fehler: {e}")
-                    traceback.print_exc()
-
-        # Vortags-Preis aus prev_data
-        prev_fund = prev_data.get(fid, {})
-        nav_ps_prev = prev_fund.get("nav_per_share") if prev_fund else None
-        fund_parsed["nav_per_share_prev"] = nav_ps_prev
-        fund_parsed["nav_prev"] = prev_fund.get("nav") if prev_fund else None
-
-        # Price history aufbauen
-        fund_parsed["price_history"] = build_price_history(
-            fund_parsed.get("nav_per_share"),
-            fund_parsed.get("perf_ytd"),
-            fund_parsed.get("perf_fy"),
-            nav_ps_prev,
-        )
-
-        # Änderungen erkennen
-        prev_holdings = prev_fund.get("holdings", []) if prev_fund else []
-        changes = detect_changes(fund_parsed.get("holdings", []), prev_holdings)
-        changes["date_prev"] = prev_fund.get("report_date") if prev_fund else None
-        fund_parsed["changes"] = changes
-
-        # Vortags-Holdings für Tagesvergleich (lean – nur nötige Felder)
-        fund_parsed["prev_holdings"] = [
-            {"isin": h.get("isin"), "name": h.get("name"), "mv_eur": h.get("mv_eur"),
-             "pl": h.get("pl"), "qty": h.get("qty")}
-            for h in prev_holdings if h.get("isin") and h["isin"] not in ("None", "")
-        ]
-
-        # KPIs berechnen
-        fund_parsed = compute_kpis(fund_parsed)
-
-        # Merge mit Fund-Metadaten
-        funds_data.append({**fund_meta, **fund_parsed})
-
-        print(f"   ✅ {fid}: NAV {fund_parsed.get('nav',0)/1e6:.2f} Mio., "
-              f"Preis {fund_parsed.get('nav_per_share',0):.4f}, "
-              f"YTD {fund_parsed.get('perf_ytd',0):.2f}%")
+            nav_ps_prev = prev_fund.get("nav_per_share") if prev_fund else None
+            fund_parsed["nav_per_share_prev"] = nav_ps_prev
+            fund_parsed["nav_prev"] = prev_fund.get("nav") if prev_fund else None
+    
+            # Price history aufbauen
+            fund_parsed["price_history"] = build_price_history(
+                fund_parsed.get("nav_per_share"),
+                fund_parsed.get("perf_ytd"),
+                fund_parsed.get("perf_fy"),
+                nav_ps_prev,
+            )
+    
+            # Änderungen erkennen
+            prev_holdings = prev_fund.get("holdings", []) if prev_fund else []
+            changes = detect_changes(fund_parsed.get("holdings", []), prev_holdings)
+            changes["date_prev"] = prev_fund.get("report_date") if prev_fund else None
+            fund_parsed["changes"] = changes
+    
+            # Vortags-Holdings für Tagesvergleich (lean – nur nötige Felder)
+            fund_parsed["prev_holdings"] = [
+                {"isin": h.get("isin"), "name": h.get("name"), "mv_eur": h.get("mv_eur"),
+                 "pl": h.get("pl"), "qty": h.get("qty")}
+                for h in prev_holdings if h.get("isin") and h["isin"] not in ("None", "")
+            ]
+    
+            # KPIs berechnen
+            fund_parsed = compute_kpis(fund_parsed)
+    
+            # Merge mit Fund-Metadaten
+            funds_data.append({**fund_meta, **fund_parsed})
+    
+            print(f"   ✅ {fid}: NAV {fund_parsed.get('nav',0)/1e6:.2f} Mio., "
+                  f"Preis {fund_parsed.get('nav_per_share',0):.4f}, "
+                  f"YTD {fund_parsed.get('perf_ytd',0):.2f}%")
 
     if not funds_data:
         print("❌ Keine Daten gefunden. Abbruch.")
         sys.exit(1)
 
-    # 4b. NAV-Historie aktualisieren
+    # 4b. NAV-Historie aktualisieren (nur Full-Run)
     today_str = date.today().isoformat()
-    for fund in funds_data:
-        fid = fund["id"]
-        price = fund.get("nav_per_share")
-        nav   = fund.get("nav")
-        if price and price > 0:
-            if fid not in nav_history:
-                nav_history[fid] = []
-            # BVI-Seed-Punkte hinzufügen (GJ-Start, YTD-Start)
-            for ph_point in fund.get("price_history", []):
-                if not any(h["date"] == ph_point["date"] for h in nav_history[fid]):
-                    nav_history[fid].append({"date": ph_point["date"], "price": ph_point["price"]})
-            # Heutigen Datenpunkt hinzufügen
-            if not any(h["date"] == today_str for h in nav_history[fid]):
-                nav_history[fid].append({
-                    "date": today_str,
-                    "price": round(price, 4),
-                    "nav": round(nav, 2) if nav else None,
-                })
-            nav_history[fid].sort(key=lambda x: x["date"])
-            print(f"  📈 {fid} NAV-Historie: {len(nav_history[fid])} Punkte")
+    if RUN_MODE != "news":
+        for fund in funds_data:
+            fid = fund["id"]
+            price = fund.get("nav_per_share")
+            nav   = fund.get("nav")
+            if price and price > 0:
+                if fid not in nav_history:
+                    nav_history[fid] = []
+                # BVI-Seed-Punkte hinzufügen (GJ-Start, YTD-Start)
+                for ph_point in fund.get("price_history", []):
+                    if not any(h["date"] == ph_point["date"] for h in nav_history[fid]):
+                        nav_history[fid].append({"date": ph_point["date"], "price": ph_point["price"]})
+                # Heutigen Datenpunkt hinzufügen
+                if not any(h["date"] == today_str for h in nav_history[fid]):
+                    nav_history[fid].append({
+                        "date": today_str,
+                        "price": round(price, 4),
+                        "nav": round(nav, 2) if nav else None,
+                    })
+                nav_history[fid].sort(key=lambda x: x["date"])
+                print(f"  📈 {fid} NAV-Historie: {len(nav_history[fid])} Punkte")
 
     # 5. News fetchen
     companies_for_news = {}
@@ -2653,7 +2693,11 @@ def main():
     # Sort by mv descending
     companies_for_news = dict(sorted(companies_for_news.items(), key=lambda x: x[1]["mv"], reverse=True))
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    news_data = fetch_all_news(companies_for_news, anthropic_key=anthropic_key)
+    # Article-Caching: bestehende Summaries laden
+    prev_news_data = {}
+    if github_token and github_repo:
+        prev_news_data = load_json_from_github(github_token, github_repo, "docs/news_data.json") or {}
+    news_data = fetch_all_news(companies_for_news, anthropic_key=anthropic_key, prev_news_data=prev_news_data)
 
     # 5b. Run-Log Eintrag erstellen
     run_entry = {
@@ -2688,15 +2732,20 @@ def main():
         git_push_file(github_token, github_repo, "docs/dashboard_data.json",
                      data_json.encode("utf-8"),
                      f"Data update {today_str}")
-        # Prev data für morgen speichern
-        prev_save = {f["id"]: {k: v for k, v in f.items() if k not in ("changes",)}
-                     for f in funds_data}
-        git_push_file(github_token, github_repo, "docs/prev_data.json",
-                     json.dumps(prev_save, ensure_ascii=False).encode("utf-8"),
-                     f"Prev data {today_str}")
-        git_push_file(github_token, github_repo, "docs/nav_history.json",
-                     json.dumps(nav_history, ensure_ascii=False).encode("utf-8"),
-                     f"NAV history {today_str}")
+        # News-Daten speichern (immer, für Caching)
+        git_push_file(github_token, github_repo, "docs/news_data.json",
+                     json.dumps(news_data, ensure_ascii=False).encode("utf-8"),
+                     f"News update {today_str}")
+        # Nur beim Full-Run: Prev-Data, NAV-Historie speichern
+        if RUN_MODE != "news":
+            prev_save = {f["id"]: {k: v for k, v in f.items() if k not in ("changes",)}
+                         for f in funds_data}
+            git_push_file(github_token, github_repo, "docs/prev_data.json",
+                         json.dumps(prev_save, ensure_ascii=False).encode("utf-8"),
+                         f"Prev data {today_str}")
+            git_push_file(github_token, github_repo, "docs/nav_history.json",
+                         json.dumps(nav_history, ensure_ascii=False).encode("utf-8"),
+                         f"NAV history {today_str}")
         git_push_file(github_token, github_repo, "docs/run_log.json",
                      json.dumps(run_log, ensure_ascii=False).encode("utf-8"),
                      f"Run log {today_str}")
