@@ -735,13 +735,13 @@ def summarize_news(company_name, articles, anthropic_key):
         "model": "claude-haiku-4-5-20251001",
         "max_tokens": 400,
         "messages": [{"role": "user", "content": prompt}],
-    }).encode()
+    }, ensure_ascii=False).encode("utf-8")
     req = Request(
         "https://api.anthropic.com/v1/messages", data=body, method="POST",
         headers={
             "x-api-key": anthropic_key,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json",
+            "anthropic-version": "2024-06-01",
+            "content-type": "application/json; charset=utf-8",
         },
     )
     try:
@@ -757,6 +757,12 @@ def summarize_news(company_name, articles, anthropic_key):
             elif line.startswith("TEXT:"):
                 text = line[5:].strip()
         return {"headline": headline, "text": text} if (headline or text) else None
+    except HTTPError as e:
+        body_err = ""
+        try: body_err = e.read().decode("utf-8", errors="replace")[:300]
+        except Exception: pass
+        print(f"    ⚠️  Haiku-Fehler für {company_name}: HTTP {e.code} – {body_err}")
+        return None
     except Exception as e:
         print(f"    ⚠️  Haiku-Fehler für {company_name}: {e}")
         return None
@@ -797,7 +803,7 @@ def _is_finance_relevant(title, source):
     return True
 
 
-def fetch_all_news(companies, max_per_company=8, request_timeout=5, anthropic_key=None, max_summaries=50):
+def fetch_all_news(companies, max_per_company=8, request_timeout=5, anthropic_key=None, max_summaries=100):
     """Fetcht Finanz-News via Google News RSS für alle Unternehmen, optional mit Haiku-Zusammenfassung."""
     import xml.etree.ElementTree as ET
     import time as _time
