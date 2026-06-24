@@ -1,14 +1,18 @@
 name: IQAM Dashboard Update
 
 on:
-  schedule:
-    # Täglich Mo–Fr um 13:30 UTC (= 15:30 CEST / 14:30 CET)
-    - cron: "0 7-17 * * 1-5"
   push:
     branches: [main]
     paths:
       - "dashboard_update.py"
   workflow_dispatch:
+    inputs:
+      run_mode:
+        description: 'Run mode: full (Fondsdaten+News) oder news (nur News)'
+        required: false
+        default: 'full'
+        type: choice
+        options: [full, news]
 
 permissions:
   contents: write
@@ -37,6 +41,7 @@ jobs:
           GITHUB_TOKEN:       ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY:  ${{ github.repository }}
           ANTHROPIC_API_KEY:  ${{ secrets.ANTHROPIC_API_KEY }}
+          RUN_MODE:           ${{ github.event.inputs.run_mode || 'full' }}
         run: python dashboard_update.py
 
       - name: Job Summary
@@ -46,5 +51,6 @@ jobs:
           echo "| Feld | Wert |" >> $GITHUB_STEP_SUMMARY
           echo "|------|------|" >> $GITHUB_STEP_SUMMARY
           echo "| Datum | $(date -u '+%d.%m.%Y %H:%M UTC') |" >> $GITHUB_STEP_SUMMARY
+          echo "| Modus | ${{ github.event.inputs.run_mode || 'full' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Status | ${{ job.status }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Dashboard | https://nicolasferschen-art.github.io/sunrise-dashboard/ |" >> $GITHUB_STEP_SUMMARY
