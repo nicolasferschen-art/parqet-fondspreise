@@ -873,7 +873,7 @@ def fetch_all_news(companies, max_per_company=8, request_timeout=5, anthropic_ke
 
 
 # ─── Dashboard HTML generieren ────────────────────────────────────────────────
-def generate_html(funds_data, updated_at, nav_history=None, news_data=None, run_log=None):
+def generate_html(funds_data, updated_at, nav_history=None, news_data=None, run_log=None, changes_history=None):
     """Generiert das vollständige Dashboard-HTML."""
     data_json = json.dumps(funds_data, ensure_ascii=False, separators=(',', ':'))
     nav_history_json = json.dumps(nav_history or {}, ensure_ascii=False, separators=(',', ':'))
@@ -1228,6 +1228,25 @@ tr:hover td {{ background: var(--surface2); }}
             else:
                 html += '<div class="placeholder">Noch keine Daten für heute<br>(wird ab dem 2. Tag befüllt)</div>\n'
             html += '</div>\n'
+        html += '</div>\n'
+
+        # Transaktionshistorie (kumulativ)
+        ch = (changes_history or {}).get(fid, [])
+        html += '<div class="section-title">Transaktionshistorie</div>\n'
+        html += '<div class="card">\n'
+        if ch:
+            html += '<div class="tbl-wrap"><table id="ch-tbl-{fid}">\n'
+            html += '<thead><tr><th>Datum</th><th>Typ</th><th>Unternehmen</th><th>ISIN</th><th style="text-align:right">Marktwert</th></tr></thead>\n'
+            html += '<tbody>\n'
+            for entry in sorted(ch, key=lambda x: x.get("date",""), reverse=True):
+                typ = entry.get("type","")
+                badge = '<span class="badge-new">NEU</span>' if typ == "added" else '<span class="badge-out">RAUS</span>'
+                mv = entry.get("mv_eur")
+                mv_str = f'{mv/1e6:.2f} Mio. €' if mv and mv >= 1e6 else (f'{mv:,.0f} €' if mv else '—')
+                html += f'<tr><td style="white-space:nowrap">{entry.get("date","—")}</td><td>{badge}</td><td>{entry.get("name","—")[:40]}</td><td style="font-family:monospace;font-size:11px">{entry.get("isin","—")}</td><td style="text-align:right">{mv_str}</td></tr>\n'
+            html += '</tbody></table></div>\n'
+        else:
+            html += '<div class="placeholder">Noch keine Transaktionshistorie — wird ab dem 2. Handelstag befüllt.</div>\n'
         html += '</div>\n'
 
         # Top Gewinner / Verlierer
@@ -2532,9 +2551,11 @@ def main():
     prev_data = {}
     nav_history = {}
     run_log = []
+    changes_history = {}
     if github_token and github_repo:
         nav_history = load_nav_history(github_token, github_repo)
         run_log = load_run_log(github_token, github_repo)
+        changes_history = load_json_from_github(github_token, github_repo, "docs/changes_history.json") or {}
 
     if RUN_MODE == "news":
         # ── News-only Run: Fondsdaten aus Cache laden ──────────────────────────
@@ -2629,6 +2650,20 @@ def main():
             changes = detect_changes(fund_parsed.get("holdings", []), prev_holdings)
             changes["date_prev"] = prev_fund.get("report_date") if prev_fund else None
             fund_parsed["changes"] = changes
+
+            # Transaktionshistorie kumulativ aufbauen
+            today_str = date.today().isoformat()
+            if fid not in changes_history:
+                changes_history[fid] = []
+            existing_keys = {(e["isin"], e["date"], e["type"]) for e in changes_history[fid]}
+            for h in changes.get("added", []):
+                key = (h.get("isin",""), today_str, "added")
+                if key not in existing_keys:
+                    changes_history[fid].append({"date": today_str, "type": "added", "isin": h.get("isin",""), "name": h.get("name",""), "mv_eur": h.get("mv_eur")})
+            for h in changes.get("removed", []):
+                key = (h.get("isin",""), today_str, "removed")
+                if key not in existing_keys:
+                    changes_history[fid].append({"date": today_str, "type": "removed", "isin": h.get("isin",""), "name": h.get("name",""), "mv_eur": h.get("mv_eur")})
     
             # Vortags-Holdings für Tagesvergleich (lean – nur nötige Felder)
             fund_parsed["prev_holdings"] = [
@@ -2715,7 +2750,7 @@ def main():
     # 6. Dashboard generieren
     updated_at = datetime.now().strftime("%d.%m.%Y %H:%M UTC")
     print(f"\n🔨 Generiere Dashboard ({updated_at})…")
-    html = generate_html(funds_data, updated_at, nav_history=nav_history, news_data=news_data, run_log=run_log)
+    html = generate_html(funds_data, updated_at, nav_history=nav_history, news_data=news_data, run_log=run_log, changes_history=changes_history)
     data_json = json.dumps(
         [{k: v for k, v in f.items() if k != "holdings"} | {"holdings": f.get("holdings", [])}
          for f in funds_data],
@@ -2746,6 +2781,9 @@ def main():
             git_push_file(github_token, github_repo, "docs/nav_history.json",
                          json.dumps(nav_history, ensure_ascii=False).encode("utf-8"),
                          f"NAV history {today_str}")
+            git_push_file(github_token, github_repo, "docs/changes_history.json",
+                         json.dumps(changes_history, ensure_ascii=False).encode("utf-8"),
+                         f"Changes history {today_str}")
         git_push_file(github_token, github_repo, "docs/run_log.json",
                      json.dumps(run_log, ensure_ascii=False).encode("utf-8"),
                      f"Run log {today_str}")
