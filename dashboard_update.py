@@ -2782,9 +2782,14 @@ def main():
                         print(f"   ❌ LISTE Parse-Fehler: {e}")
                         traceback.print_exc()
     
-            # Vortags-Preis aus prev_data
+            # Vortags-Preis: aus nav_history (letzter Eintrag vor heute) → robuster als prev_data
             prev_fund = prev_data.get(fid, {})
-            nav_ps_prev = prev_fund.get("nav_per_share") if prev_fund else None
+            today_iso = date.today().isoformat()
+            hist_entries = [h for h in nav_history.get(fid, []) if h["date"] < today_iso]
+            if hist_entries:
+                nav_ps_prev = hist_entries[-1]["price"]
+            else:
+                nav_ps_prev = prev_fund.get("nav_per_share") if prev_fund else None
             fund_parsed["nav_per_share_prev"] = nav_ps_prev
             fund_parsed["nav_prev"] = prev_fund.get("nav") if prev_fund else None
     
