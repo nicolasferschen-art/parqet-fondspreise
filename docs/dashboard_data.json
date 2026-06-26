@@ -295,7 +295,7 @@
         "value": 0.0
       }
     ],
-    "nav_per_share_prev": 228.85,
+    "nav_per_share_prev": 226.64,
     "nav_prev": 165073020.31,
     "price_history": [
       {
@@ -311,18 +311,25 @@
         "note": "Jahresstart (berechnet aus BVI)"
       },
       {
-        "date": "2026-06-24",
-        "label": "24.06.2026",
-        "price": 228.85,
+        "date": "2026-06-25",
+        "label": "25.06.2026",
+        "price": 226.64,
         "note": "Vortag (Inventarblatt)"
       },
       {
-        "date": "2026-06-25",
-        "label": "25.06.2026",
+        "date": "2026-06-26",
+        "label": "26.06.2026",
         "price": 226.32,
         "note": "Heute (Inventarblatt)"
       }
     ],
+    "changes": {
+      "added": [],
+      "removed": [],
+      "increased": [],
+      "decreased": [],
+      "date_prev": null
+    },
     "prev_holdings": [
       {
         "isin": "AT000000ETS9",
@@ -5848,7 +5855,7 @@
         "value": 0.04
       }
     ],
-    "nav_per_share_prev": 193.4,
+    "nav_per_share_prev": 191.8,
     "nav_prev": 54834749.45,
     "price_history": [
       {
@@ -5864,18 +5871,25 @@
         "note": "Jahresstart (berechnet aus BVI)"
       },
       {
-        "date": "2026-06-24",
-        "label": "24.06.2026",
-        "price": 193.4,
+        "date": "2026-06-25",
+        "label": "25.06.2026",
+        "price": 191.8,
         "note": "Vortag (Inventarblatt)"
       },
       {
-        "date": "2026-06-25",
-        "label": "25.06.2026",
+        "date": "2026-06-26",
+        "label": "26.06.2026",
         "price": 192.16,
         "note": "Heute (Inventarblatt)"
       }
     ],
+    "changes": {
+      "added": [],
+      "removed": [],
+      "increased": [],
+      "decreased": [],
+      "date_prev": null
+    },
     "prev_holdings": [
       {
         "isin": "AN8068571086",
@@ -11644,7 +11658,7 @@
         "value": 0.16
       }
     ],
-    "nav_per_share_prev": 114.11,
+    "nav_per_share_prev": 113.05,
     "nav_prev": 26796181.38,
     "price_history": [
       {
@@ -11660,18 +11674,25 @@
         "note": "Jahresstart (berechnet aus BVI)"
       },
       {
-        "date": "2026-06-24",
-        "label": "24.06.2026",
-        "price": 114.11,
+        "date": "2026-06-25",
+        "label": "25.06.2026",
+        "price": 113.05,
         "note": "Vortag (Inventarblatt)"
       },
       {
-        "date": "2026-06-25",
-        "label": "25.06.2026",
+        "date": "2026-06-26",
+        "label": "26.06.2026",
         "price": 113.0,
         "note": "Heute (Inventarblatt)"
       }
     ],
+    "changes": {
+      "added": [],
+      "removed": [],
+      "increased": [],
+      "decreased": [],
+      "date_prev": null
+    },
     "prev_holdings": [
       {
         "isin": "AT0000652011",
