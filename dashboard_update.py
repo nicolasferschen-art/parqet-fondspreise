@@ -809,10 +809,10 @@ def summarize_news(company_name, articles, anthropic_key):
     if not anthropic_key or not articles:
         return None
     articles_text = ""
-    for a in articles:
-        content = a.get("desc") or a.get("title", "")
-        if a.get("title") and a.get("desc") and a["title"] not in a["desc"]:
-            content = f"{a['title']} — {a['desc']}"
+    for a in articles[:5]:  # max 5 Artikel pro Unternehmen
+        title = (a.get("title") or "")[:120]
+        desc  = (a.get("desc") or "")[:150]
+        content = f"{title} — {desc}" if desc and title not in desc else title
         src = f" ({a['source']})" if a.get("source") else ""
         articles_text += f"- {content}{src}\n"
 
@@ -836,7 +836,7 @@ def summarize_news(company_name, articles, anthropic_key):
     )
     body = json.dumps({
         "model": "claude-haiku-4-5-20251001",
-        "max_tokens": 400,
+        "max_tokens": 200,
         "messages": [{"role": "user", "content": prompt}],
     }, ensure_ascii=False).encode("utf-8")
     req = Request(
@@ -2885,29 +2885,37 @@ def main():
                 nav_history[fid].sort(key=lambda x: x["date"])
                 print(f"  📈 {fid} NAV-Historie: {len(nav_history[fid])} Punkte")
 
-    # 5. News fetchen
-    companies_for_news = {}
-    for fund in funds_data:
-        fid = fund["id"]
-        for h in fund.get("holdings", []):
-            isin = (h.get("isin") or "").strip()
-            name = (h.get("name") or "").strip()
-            if not name or name in ("None", ""):
-                continue
-            key = isin if (isin and isin not in ("None", "")) else name
-            if key not in companies_for_news:
-                companies_for_news[key] = {"name": name, "funds": [], "mv": 0}
-            companies_for_news[key]["mv"] += h.get("mv_eur") or 0
-            if fid not in companies_for_news[key]["funds"]:
-                companies_for_news[key]["funds"].append(fid)
-    # Sort by mv descending
-    companies_for_news = dict(sorted(companies_for_news.items(), key=lambda x: x[1]["mv"], reverse=True))
-    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    # Article-Caching: bestehende Summaries laden
+    # 5. News fetchen (max 2× pro Tag)
+    today_str = date.today().isoformat()
+    news_runs_today = sum(
+        1 for e in run_log
+        if e.get("ts", "").startswith(today_str) and e.get("news", 0) > 0
+    )
     prev_news_data = {}
     if github_token and github_repo:
         prev_news_data = load_json_from_github(github_token, github_repo, "docs/news_data.json") or {}
-    news_data = fetch_all_news(companies_for_news, anthropic_key=anthropic_key, prev_news_data=prev_news_data)
+
+    if news_runs_today >= 2:
+        print(f"\n⏭️  News bereits {news_runs_today}× heute aktualisiert – überspringe News-Fetch.")
+        news_data = prev_news_data
+    else:
+        companies_for_news = {}
+        for fund in funds_data:
+            fid = fund["id"]
+            for h in fund.get("holdings", []):
+                isin = (h.get("isin") or "").strip()
+                name = (h.get("name") or "").strip()
+                if not name or name in ("None", ""):
+                    continue
+                key = isin if (isin and isin not in ("None", "")) else name
+                if key not in companies_for_news:
+                    companies_for_news[key] = {"name": name, "funds": [], "mv": 0}
+                companies_for_news[key]["mv"] += h.get("mv_eur") or 0
+                if fid not in companies_for_news[key]["funds"]:
+                    companies_for_news[key]["funds"].append(fid)
+        companies_for_news = dict(sorted(companies_for_news.items(), key=lambda x: x[1]["mv"], reverse=True))
+        anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        news_data = fetch_all_news(companies_for_news, anthropic_key=anthropic_key, prev_news_data=prev_news_data, max_summaries=50)
 
     # 5b. Run-Log Eintrag erstellen
     run_entry = {
