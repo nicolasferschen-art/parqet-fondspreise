@@ -2753,13 +2753,26 @@ def main():
                     else:
                         prev_qty = prev_h.get("qty") or 0
                         curr_qty = h.get("qty") or 0
-                        if prev_qty and curr_qty and abs(curr_qty - prev_qty) / max(abs(prev_qty), 1) > 0.005:
-                            diff_pct = (curr_qty - prev_qty) / abs(prev_qty) * 100
-                            typ = "increased" if curr_qty > prev_qty else "decreased"
-                            key = (isin, d_curr, typ)
-                            if key not in existing_keys:
-                                changes_history[fid].append({"date": d_curr, "type": typ, "isin": isin, "name": h.get("name",""), "mv_eur": h.get("mv_eur"), "qty": curr_qty, "prev_qty": prev_qty, "change_pct": round(diff_pct, 1)})
-                                existing_keys.add(key)
+                        if prev_qty and curr_qty:
+                            # Qty-basierte Erkennung (präzise)
+                            if abs(curr_qty - prev_qty) / max(abs(prev_qty), 1) > 0.005:
+                                diff_pct = (curr_qty - prev_qty) / abs(prev_qty) * 100
+                                typ = "increased" if curr_qty > prev_qty else "decreased"
+                                key = (isin, d_curr, typ)
+                                if key not in existing_keys:
+                                    changes_history[fid].append({"date": d_curr, "type": typ, "isin": isin, "name": h.get("name",""), "mv_eur": h.get("mv_eur"), "qty": curr_qty, "prev_qty": prev_qty, "change_pct": round(diff_pct, 1)})
+                                    existing_keys.add(key)
+                        else:
+                            # Fallback: mv_eur-Änderung als Proxy (wenn qty fehlt)
+                            prev_mv = prev_h.get("mv_eur") or 0
+                            curr_mv = h.get("mv_eur") or 0
+                            if prev_mv and curr_mv and abs(curr_mv - prev_mv) / max(abs(prev_mv), 1) > 0.15:
+                                diff_pct = (curr_mv - prev_mv) / abs(prev_mv) * 100
+                                typ = "increased" if curr_mv > prev_mv else "decreased"
+                                key = (isin, d_curr, typ)
+                                if key not in existing_keys:
+                                    changes_history[fid].append({"date": d_curr, "type": typ, "isin": isin, "name": h.get("name",""), "mv_eur": curr_mv, "change_pct": round(diff_pct, 1), "note": "mv_proxy"})
+                                    existing_keys.add(key)
                 for isin, h in prev_snap.items():
                     if isin not in curr_snap:
                         key = (isin, d_curr, "removed")
@@ -2916,13 +2929,25 @@ def main():
                         # Teilkauf / Teilverkauf (Position bleibt, Menge ändert sich)
                         prev_qty = prev_info.get("qty") or 0
                         curr_qty = h.get("qty") or 0
-                        if prev_qty and curr_qty and abs(curr_qty - prev_qty) / max(abs(prev_qty), 1) > 0.005:
-                            diff_pct = (curr_qty - prev_qty) / abs(prev_qty) * 100
-                            typ = "increased" if curr_qty > prev_qty else "decreased"
-                            key = (isin, today_str, typ)
-                            if key not in existing_keys:
-                                changes_history[fid].append({"date": today_str, "type": typ, "isin": isin, "name": h.get("name",""), "mv_eur": h.get("mv_eur"), "qty": curr_qty, "prev_qty": prev_qty, "change_pct": round(diff_pct, 1)})
-                                existing_keys.add(key)
+                        if prev_qty and curr_qty:
+                            if abs(curr_qty - prev_qty) / max(abs(prev_qty), 1) > 0.005:
+                                diff_pct = (curr_qty - prev_qty) / abs(prev_qty) * 100
+                                typ = "increased" if curr_qty > prev_qty else "decreased"
+                                key = (isin, today_str, typ)
+                                if key not in existing_keys:
+                                    changes_history[fid].append({"date": today_str, "type": typ, "isin": isin, "name": h.get("name",""), "mv_eur": h.get("mv_eur"), "qty": curr_qty, "prev_qty": prev_qty, "change_pct": round(diff_pct, 1)})
+                                    existing_keys.add(key)
+                        else:
+                            # Fallback: mv_eur-Proxy wenn qty fehlt
+                            prev_mv = prev_info.get("mv_eur") or 0
+                            curr_mv = h.get("mv_eur") or 0
+                            if prev_mv and curr_mv and abs(curr_mv - prev_mv) / max(abs(prev_mv), 1) > 0.15:
+                                diff_pct = (curr_mv - prev_mv) / abs(prev_mv) * 100
+                                typ = "increased" if curr_mv > prev_mv else "decreased"
+                                key = (isin, today_str, typ)
+                                if key not in existing_keys:
+                                    changes_history[fid].append({"date": today_str, "type": typ, "isin": isin, "name": h.get("name",""), "mv_eur": curr_mv, "change_pct": round(diff_pct, 1), "note": "mv_proxy"})
+                                    existing_keys.add(key)
                 for isin, info in prev_isin_map.items():
                     if isin not in curr_map:
                         # Komplettverkauf
