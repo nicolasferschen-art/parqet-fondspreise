@@ -2766,7 +2766,7 @@ def main():
                             # Fallback: mv_eur-Änderung als Proxy (wenn qty fehlt)
                             prev_mv = prev_h.get("mv_eur") or 0
                             curr_mv = h.get("mv_eur") or 0
-                            if prev_mv and curr_mv and abs(curr_mv - prev_mv) / max(abs(prev_mv), 1) > 0.15:
+                            if prev_mv and curr_mv and abs(curr_mv - prev_mv) / max(abs(prev_mv), 1) > 0.08:
                                 diff_pct = (curr_mv - prev_mv) / abs(prev_mv) * 100
                                 typ = "increased" if curr_mv > prev_mv else "decreased"
                                 key = (isin, d_curr, typ)
@@ -2879,14 +2879,17 @@ def main():
                         print(f"   ❌ LISTE Parse-Fehler: {e}")
                         traceback.print_exc()
     
-            # Vortags-Preis: aus nav_history (letzter Eintrag vor heute) → robuster als prev_data
+            # Vortags-Preis: aus prev_data wenn Datum vor heute, sonst aus nav_history
             prev_fund = prev_data.get(fid, {})
             today_iso = date.today().isoformat()
-            hist_entries = [h for h in nav_history.get(fid, []) if h["date"] < today_iso]
-            if hist_entries:
-                nav_ps_prev = hist_entries[-1]["price"]
+            prev_report_date = prev_fund.get("report_date", "") if prev_fund else ""
+            if prev_fund and prev_report_date and prev_report_date < today_iso:
+                # prev_data hat echtes Vortags-Datum → direkt verwenden
+                nav_ps_prev = prev_fund.get("nav_per_share")
             else:
-                nav_ps_prev = prev_fund.get("nav_per_share") if prev_fund else None
+                # prev_data ist von heute oder leer → nav_history nehmen (letzter Punkt vor heute)
+                hist_entries = [h for h in nav_history.get(fid, []) if h["date"] < today_iso]
+                nav_ps_prev = hist_entries[-1]["price"] if hist_entries else None
             fund_parsed["nav_per_share_prev"] = nav_ps_prev
             fund_parsed["nav_prev"] = prev_fund.get("nav") if prev_fund else None
     
@@ -2941,7 +2944,7 @@ def main():
                             # Fallback: mv_eur-Proxy wenn qty fehlt
                             prev_mv = prev_info.get("mv_eur") or 0
                             curr_mv = h.get("mv_eur") or 0
-                            if prev_mv and curr_mv and abs(curr_mv - prev_mv) / max(abs(prev_mv), 1) > 0.15:
+                            if prev_mv and curr_mv and abs(curr_mv - prev_mv) / max(abs(prev_mv), 1) > 0.08:
                                 diff_pct = (curr_mv - prev_mv) / abs(prev_mv) * 100
                                 typ = "increased" if curr_mv > prev_mv else "decreased"
                                 key = (isin, today_str, typ)
