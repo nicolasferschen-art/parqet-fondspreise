@@ -1338,15 +1338,32 @@ tr:hover td {{ background: var(--surface2); }}
         html += '<div class="section-title">Transaktionshistorie</div>\n'
         html += '<div class="card">\n'
         if ch:
-            html += '<div class="tbl-wrap"><table id="ch-tbl-{fid}">\n'
-            html += '<thead><tr><th>Datum</th><th>Typ</th><th>Unternehmen</th><th>ISIN</th><th style="text-align:right">Marktwert</th></tr></thead>\n'
+            TYPE_CONFIG = {
+                "added":     ("Neukauf",        "#16a34a", "▲"),
+                "removed":   ("Komplettverkauf", "#dc2626", "✕"),
+                "increased": ("Aufstockung",     "#2563eb", "↑"),
+                "decreased": ("Teilverkauf",     "#ea580c", "↓"),
+            }
+            html += '<div class="tbl-wrap"><table>\n'
+            html += '<thead><tr><th>Datum</th><th>Typ</th><th>Unternehmen</th><th>ISIN</th><th style="text-align:right">Marktwert</th><th style="text-align:right">Änderung</th></tr></thead>\n'
             html += '<tbody>\n'
             for entry in sorted(ch, key=lambda x: x.get("date",""), reverse=True):
                 typ = entry.get("type","")
-                badge = '<span class="badge-new">NEU</span>' if typ == "added" else '<span class="badge-out">RAUS</span>'
+                label, color, icon = TYPE_CONFIG.get(typ, (typ, "#6b7280", "•"))
                 mv = entry.get("mv_eur")
                 mv_str = f'{mv/1e6:.2f} Mio. €' if mv and mv >= 1e6 else (f'{mv:,.0f} €' if mv else '—')
-                html += f'<tr><td style="white-space:nowrap">{entry.get("date","—")}</td><td>{badge}</td><td>{entry.get("name","—")[:40]}</td><td style="font-family:monospace;font-size:11px">{entry.get("isin","—")}</td><td style="text-align:right">{mv_str}</td></tr>\n'
+                chg_pct = entry.get("change_pct")
+                chg_str = f'{chg_pct:+.1f}%' if chg_pct is not None else '—'
+                chg_color = "#16a34a" if (chg_pct or 0) > 0 else "#dc2626"
+                badge_html = f'<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;color:{color};background:{color}18">{icon} {label}</span>'
+                html += (f'<tr>'
+                         f'<td style="white-space:nowrap;color:var(--muted);font-size:12px">{entry.get("date","—")}</td>'
+                         f'<td>{badge_html}</td>'
+                         f'<td style="font-weight:500">{entry.get("name","—")[:38]}</td>'
+                         f'<td style="font-family:monospace;font-size:11px;color:var(--muted)">{entry.get("isin","—")}</td>'
+                         f'<td style="text-align:right;font-size:12px">{mv_str}</td>'
+                         f'<td style="text-align:right;font-size:12px;font-weight:600;color:{chg_color if chg_pct is not None else "var(--muted)"}">{chg_str}</td>'
+                         f'</tr>\n')
             html += '</tbody></table></div>\n'
         else:
             html += '<div class="placeholder">Noch keine Transaktionshistorie — wird ab dem 2. Handelstag befüllt.</div>\n'
@@ -2668,7 +2685,7 @@ def main():
         access_token = get_access_token()
         holdings_history = backfill_holdings_history(access_token, {})
 
-        # Changes-History aus vollständiger holdings_history neu aufbauen
+        # Changes-History aus vollständiger holdings_history neu aufbauen (inkl. Teilkäufe/-verkäufe)
         print("\n🔁 Baue Transaktionshistorie aus Holdings-History auf…")
         changes_history = {}
         for fid, snaps in holdings_history.items():
@@ -2681,16 +2698,27 @@ def main():
                 curr_snap = {h["isin"]: h for h in snaps[d_curr] if h.get("isin")}
                 prev_snap = {h["isin"]: h for h in snaps[d_prev] if h.get("isin")}
                 for isin, h in curr_snap.items():
-                    if isin not in prev_snap:
+                    prev_h = prev_snap.get(isin)
+                    if prev_h is None:
                         key = (isin, d_curr, "added")
                         if key not in existing_keys:
-                            changes_history[fid].append({"date": d_curr, "type": "added", "isin": isin, "name": h.get("name",""), "mv_eur": h.get("mv_eur")})
+                            changes_history[fid].append({"date": d_curr, "type": "added", "isin": isin, "name": h.get("name",""), "mv_eur": h.get("mv_eur"), "qty": h.get("qty")})
                             existing_keys.add(key)
+                    else:
+                        prev_qty = prev_h.get("qty") or 0
+                        curr_qty = h.get("qty") or 0
+                        if prev_qty and curr_qty and abs(curr_qty - prev_qty) / max(abs(prev_qty), 1) > 0.005:
+                            diff_pct = (curr_qty - prev_qty) / abs(prev_qty) * 100
+                            typ = "increased" if curr_qty > prev_qty else "decreased"
+                            key = (isin, d_curr, typ)
+                            if key not in existing_keys:
+                                changes_history[fid].append({"date": d_curr, "type": typ, "isin": isin, "name": h.get("name",""), "mv_eur": h.get("mv_eur"), "qty": curr_qty, "prev_qty": prev_qty, "change_pct": round(diff_pct, 1)})
+                                existing_keys.add(key)
                 for isin, h in prev_snap.items():
                     if isin not in curr_snap:
                         key = (isin, d_curr, "removed")
                         if key not in existing_keys:
-                            changes_history[fid].append({"date": d_curr, "type": "removed", "isin": isin, "name": h.get("name",""), "mv_eur": h.get("mv_eur")})
+                            changes_history[fid].append({"date": d_curr, "type": "removed", "isin": isin, "name": h.get("name",""), "mv_eur": h.get("mv_eur"), "qty": h.get("qty")})
                             existing_keys.add(key)
             total_ch = len(changes_history[fid])
             print(f"  📊 {fid}: {len(sorted_dates)} Tage, {total_ch} Transaktionen erkannt")
@@ -2831,22 +2859,36 @@ def main():
 
             if prev_isin_map and prev_date and prev_date < today_str:
                 for isin, h in curr_map.items():
-                    if isin not in prev_isin_map:
+                    prev_info = prev_isin_map.get(isin)
+                    if prev_info is None:
+                        # Neukauf (komplett neu)
                         key = (isin, today_str, "added")
                         if key not in existing_keys:
-                            changes_history[fid].append({"date": today_str, "type": "added", "isin": isin, "name": h.get("name",""), "mv_eur": h.get("mv_eur")})
+                            changes_history[fid].append({"date": today_str, "type": "added", "isin": isin, "name": h.get("name",""), "mv_eur": h.get("mv_eur"), "qty": h.get("qty")})
                             existing_keys.add(key)
+                    else:
+                        # Teilkauf / Teilverkauf (Position bleibt, Menge ändert sich)
+                        prev_qty = prev_info.get("qty") or 0
+                        curr_qty = h.get("qty") or 0
+                        if prev_qty and curr_qty and abs(curr_qty - prev_qty) / max(abs(prev_qty), 1) > 0.005:
+                            diff_pct = (curr_qty - prev_qty) / abs(prev_qty) * 100
+                            typ = "increased" if curr_qty > prev_qty else "decreased"
+                            key = (isin, today_str, typ)
+                            if key not in existing_keys:
+                                changes_history[fid].append({"date": today_str, "type": typ, "isin": isin, "name": h.get("name",""), "mv_eur": h.get("mv_eur"), "qty": curr_qty, "prev_qty": prev_qty, "change_pct": round(diff_pct, 1)})
+                                existing_keys.add(key)
                 for isin, info in prev_isin_map.items():
                     if isin not in curr_map:
+                        # Komplettverkauf
                         key = (isin, today_str, "removed")
                         if key not in existing_keys:
-                            changes_history[fid].append({"date": today_str, "type": "removed", "isin": isin, "name": info.get("name",""), "mv_eur": info.get("mv_eur")})
+                            changes_history[fid].append({"date": today_str, "type": "removed", "isin": isin, "name": info.get("name",""), "mv_eur": info.get("mv_eur"), "qty": info.get("qty")})
                             existing_keys.add(key)
 
-            # Aktuellen Snapshot als neues holdings_prev speichern
+            # Aktuellen Snapshot als neues holdings_prev speichern (inkl. qty für Teilkauf/-verkauf-Erkennung)
             holdings_prev[fid] = {
                 "date": today_str,
-                "isins": {isin: {"name": h.get("name",""), "mv_eur": h.get("mv_eur")} for isin, h in curr_map.items()}
+                "isins": {isin: {"name": h.get("name",""), "mv_eur": h.get("mv_eur"), "qty": h.get("qty")} for isin, h in curr_map.items()}
             }
     
             # Vortags-Holdings für Tagesvergleich (lean – nur nötige Felder)
