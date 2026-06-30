@@ -2655,12 +2655,12 @@ def main():
     nav_history = {}
     run_log = []
     changes_history = {}
-    holdings_history = {}
+    holdings_prev = {}  # {fid: {"date": "...", "isins": [...]}}
     if github_token and github_repo:
         nav_history = load_nav_history(github_token, github_repo)
         run_log = load_run_log(github_token, github_repo)
         changes_history = load_json_from_github(github_token, github_repo, "docs/changes_history.json") or {}
-        holdings_history = load_json_from_github(github_token, github_repo, "docs/holdings_history.json") or {}
+        holdings_prev = load_json_from_github(github_token, github_repo, "docs/holdings_prev.json") or {}
 
     if RUN_MODE == "backfill":
         # ── Backfill: Alle historischen Holdings aus Outlook-Mails laden ───────
@@ -2695,16 +2695,26 @@ def main():
             total_ch = len(changes_history[fid])
             print(f"  📊 {fid}: {len(sorted_dates)} Tage, {total_ch} Transaktionen erkannt")
 
-        # Pushen
+        # Pushen — changes_history zuerst (wichtig!), holdings_history nicht pushen (zu groß)
+        # Stattdessen: letzten Snapshot als holdings_prev speichern (für zukünftige tägliche Vergleiche)
         today_str = date.today().isoformat()
+        holdings_prev_new = {}
+        for fid, snaps in holdings_history.items():
+            if snaps:
+                last_date = sorted(snaps.keys())[-1]
+                holdings_prev_new[fid] = {
+                    "date": last_date,
+                    "isins": {h["isin"]: {"name": h.get("name",""), "mv_eur": h.get("mv_eur")}
+                              for h in snaps[last_date] if h.get("isin")}
+                }
         if github_token and github_repo:
-            print("\n📤 Pushe holdings_history.json und changes_history.json…")
-            git_push_file(github_token, github_repo, "docs/holdings_history.json",
-                         json.dumps(holdings_history, ensure_ascii=False).encode("utf-8"),
-                         f"Backfill holdings history {today_str}")
+            print("\n📤 Pushe changes_history.json und holdings_prev.json…")
             git_push_file(github_token, github_repo, "docs/changes_history.json",
                          json.dumps(changes_history, ensure_ascii=False).encode("utf-8"),
                          f"Backfill changes history {today_str}")
+            git_push_file(github_token, github_repo, "docs/holdings_prev.json",
+                         json.dumps(holdings_prev_new, ensure_ascii=False).encode("utf-8"),
+                         f"Backfill holdings prev {today_str}")
         print("\n✅ Backfill abgeschlossen!")
         return
 
@@ -2807,38 +2817,37 @@ def main():
             changes["date_prev"] = prev_fund.get("report_date") if prev_fund else None
             fund_parsed["changes"] = changes
 
-            # Heutigen Holdings-Snapshot speichern
+            # Tägliche Änderungen vs. letztem Snapshot erkennen und changes_history aktualisieren
             today_str = date.today().isoformat()
-            if fid not in holdings_history:
-                holdings_history[fid] = {}
-            holdings_history[fid][today_str] = [
-                {"isin": h.get("isin",""), "name": h.get("name",""),
-                 "qty": h.get("qty"), "mv_eur": h.get("mv_eur"), "weight": h.get("weight")}
-                for h in fund_parsed.get("holdings", []) if h.get("isin") and h["isin"] not in ("None","")
-            ]
+            curr_map = {h.get("isin"): h for h in fund_parsed.get("holdings", [])
+                        if h.get("isin") and h["isin"] not in ("None","")}
+            prev_snap_entry = holdings_prev.get(fid, {})
+            prev_isin_map = prev_snap_entry.get("isins", {})
+            prev_date = prev_snap_entry.get("date", "")
 
-            # Transaktionshistorie kumulativ aus holdings_history aufbauen
             if fid not in changes_history:
                 changes_history[fid] = []
             existing_keys = {(e["isin"], e["date"], e["type"]) for e in changes_history[fid]}
-            sorted_dates = sorted(holdings_history[fid].keys())
-            for i in range(1, len(sorted_dates)):
-                d_curr = sorted_dates[i]
-                d_prev = sorted_dates[i - 1]
-                curr_snap = {h["isin"]: h for h in holdings_history[fid][d_curr] if h.get("isin")}
-                prev_snap = {h["isin"]: h for h in holdings_history[fid][d_prev] if h.get("isin")}
-                for isin, h in curr_snap.items():
-                    if isin not in prev_snap:
-                        key = (isin, d_curr, "added")
+
+            if prev_isin_map and prev_date and prev_date < today_str:
+                for isin, h in curr_map.items():
+                    if isin not in prev_isin_map:
+                        key = (isin, today_str, "added")
                         if key not in existing_keys:
-                            changes_history[fid].append({"date": d_curr, "type": "added", "isin": isin, "name": h.get("name",""), "mv_eur": h.get("mv_eur")})
+                            changes_history[fid].append({"date": today_str, "type": "added", "isin": isin, "name": h.get("name",""), "mv_eur": h.get("mv_eur")})
                             existing_keys.add(key)
-                for isin, h in prev_snap.items():
-                    if isin not in curr_snap:
-                        key = (isin, d_curr, "removed")
+                for isin, info in prev_isin_map.items():
+                    if isin not in curr_map:
+                        key = (isin, today_str, "removed")
                         if key not in existing_keys:
-                            changes_history[fid].append({"date": d_curr, "type": "removed", "isin": isin, "name": h.get("name",""), "mv_eur": h.get("mv_eur")})
+                            changes_history[fid].append({"date": today_str, "type": "removed", "isin": isin, "name": info.get("name",""), "mv_eur": info.get("mv_eur")})
                             existing_keys.add(key)
+
+            # Aktuellen Snapshot als neues holdings_prev speichern
+            holdings_prev[fid] = {
+                "date": today_str,
+                "isins": {isin: {"name": h.get("name",""), "mv_eur": h.get("mv_eur")} for isin, h in curr_map.items()}
+            }
     
             # Vortags-Holdings für Tagesvergleich (lean – nur nötige Felder)
             fund_parsed["prev_holdings"] = [
@@ -2967,9 +2976,9 @@ def main():
             git_push_file(github_token, github_repo, "docs/changes_history.json",
                          json.dumps(changes_history, ensure_ascii=False).encode("utf-8"),
                          f"Changes history {today_str}")
-            git_push_file(github_token, github_repo, "docs/holdings_history.json",
-                         json.dumps(holdings_history, ensure_ascii=False).encode("utf-8"),
-                         f"Holdings history {today_str}")
+            git_push_file(github_token, github_repo, "docs/holdings_prev.json",
+                         json.dumps(holdings_prev, ensure_ascii=False).encode("utf-8"),
+                         f"Holdings prev {today_str}")
         git_push_file(github_token, github_repo, "docs/run_log.json",
                      json.dumps(run_log, ensure_ascii=False).encode("utf-8"),
                      f"Run log {today_str}")
