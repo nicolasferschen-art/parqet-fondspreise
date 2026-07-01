@@ -1230,6 +1230,12 @@ tr:hover td {{ background: var(--surface2); }}
     html += '<div class="card"><h3>Fondsvermögen (AuM)</h3><div class="chart-wrap"><canvas id="cov-aum"></canvas></div></div>\n'
     html += '</div>\n'
 
+    # Monatsreporting
+    html += '<div class="section-title">Monatsreporting</div>\n'
+    html += '<div class="card" style="overflow-x:auto">\n'
+    html += '<div id="monthly-table-wrap"><div style="color:var(--muted);font-size:13px;padding:8px">Lade Monatsdaten…</div></div>\n'
+    html += '</div>\n'
+
     # Alle Positionen aller Fonds
     html += '<div class="section-title">Alle Positionen</div>\n'
     html += '<div class="card">\n'
@@ -1719,6 +1725,110 @@ new Chart(document.getElementById('cov-aum'), {
     tooltip:{callbacks:{label:ctx=>ctx.label.split('–')[0]+': '+ctx.raw.toFixed(2)+' Mio. €'}}}}
 });
 
+
+// ── Monatsreporting ────────────────────────────────────────────────────────
+(function renderMonthlyTable() {
+  const FUND_DEFS = [
+    {id: 3411, short: 'Standortfonds AT'},
+    {id: 3431, short: 'Standortfonds DE'},
+    {id: 3581, short: 'Dividends & Interest'},
+  ];
+
+  // Für jeden Fonds: letzten Preis je Monat aus NAV_HISTORY
+  function lastPricePerMonth(fid) {
+    const hist = NAV_HISTORY[fid] || [];
+    const byMonth = {};
+    hist.forEach(h => {
+      const m = h.date.substring(0, 7); // YYYY-MM
+      if (!byMonth[m] || h.date > byMonth[m].date) byMonth[m] = h;
+    });
+    return byMonth; // {YYYY-MM: {date, price, nav}}
+  }
+
+  // Alle Monate sammeln (über alle Fonds)
+  const allMonths = new Set();
+  const fundMonthly = {};
+  FUND_DEFS.forEach(f => {
+    fundMonthly[f.id] = lastPricePerMonth(f.id);
+    Object.keys(fundMonthly[f.id]).forEach(m => allMonths.add(m));
+  });
+
+  // Nur vollständig vergangene Monate (nicht der laufende Monat)
+  const today = new Date();
+  const currentMonth = today.toISOString().substring(0, 7);
+  const months = [...allMonths].filter(m => m < currentMonth).sort().reverse(); // neueste zuerst
+
+  if (months.length === 0) {
+    document.getElementById('monthly-table-wrap').innerHTML =
+      '<div style="color:var(--muted);font-size:13px;padding:8px">Noch keine abgeschlossenen Monatsdaten vorhanden.</div>';
+    return;
+  }
+
+  // YTD-Basis: letzter Preis des Vorjahres (Dez) pro Fonds
+  function getYtdBase(fid, year) {
+    const m = fundMonthly[fid];
+    // Suche letzten Preis des Vorjahres
+    const prevYearMonths = Object.keys(m).filter(mo => mo.startsWith((year-1)+'-')).sort();
+    if (prevYearMonths.length === 0) {
+      // Fallback: frühester Preis im aktuellen Jahr
+      const curYearMonths = Object.keys(m).filter(mo => mo.startsWith(year+'-')).sort();
+      return curYearMonths.length > 0 ? m[curYearMonths[0]]?.price : null;
+    }
+    return m[prevYearMonths[prevYearMonths.length - 1]]?.price || null;
+  }
+
+  const fmtP = v => v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(2) + ' €';
+  const fmtPct = v => v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+  const fmtNav = v => v == null ? '—' : v.toFixed(4) + ' €';
+  const colorPct = v => v == null ? '' : (v >= 0 ? 'color:#16a34a' : 'color:#dc2626');
+
+  // Tabelle bauen
+  let t = '<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:720px">';
+  // Header
+  t += '<thead><tr style="border-bottom:2px solid var(--border)">';
+  t += '<th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap">Monat</th>';
+  FUND_DEFS.forEach(f => {
+    t += `<th colspan="4" style="text-align:center;padding:8px 10px;font-size:11px;color:var(--muted);font-weight:600;border-left:1px solid var(--border)">${f.short}</th>`;
+  });
+  t += '</tr>';
+  t += '<tr style="border-bottom:1px solid var(--border)">';
+  t += '<th></th>';
+  FUND_DEFS.forEach(() => {
+    t += '<th style="text-align:right;padding:4px 8px;font-size:10px;color:var(--muted);font-weight:600;border-left:1px solid var(--border)">NAV</th>';
+    t += '<th style="text-align:right;padding:4px 8px;font-size:10px;color:var(--muted);font-weight:600">Δ (€)</th>';
+    t += '<th style="text-align:right;padding:4px 8px;font-size:10px;color:var(--muted);font-weight:600">Δ (%)</th>';
+    t += '<th style="text-align:right;padding:4px 8px;font-size:10px;color:var(--muted);font-weight:600">YTD</th>';
+  });
+  t += '</tr></thead><tbody>';
+
+  months.forEach((month, idx) => {
+    const [yr, mo] = month.split('-').map(Number);
+    const prevMonth = mo === 1 ? `${yr-1}-12` : `${yr}-${String(mo-1).padStart(2,'0')}`;
+    const label = new Date(yr, mo-1, 1).toLocaleString('de-AT', {month: 'long', year: 'numeric'});
+    const rowBg = idx % 2 === 0 ? '' : 'background:var(--bg)';
+    t += `<tr style="border-bottom:1px solid var(--border);${rowBg}">`;
+    t += `<td style="padding:8px 10px;white-space:nowrap;font-weight:500">${label}</td>`;
+
+    FUND_DEFS.forEach(f => {
+      const cur = fundMonthly[f.id][month]?.price ?? null;
+      const prev = fundMonthly[f.id][prevMonth]?.price ?? null;
+      const ytdBase = getYtdBase(f.id, yr);
+
+      const deltaAbs = (cur != null && prev != null) ? cur - prev : null;
+      const deltaPct = (cur != null && prev != null && prev !== 0) ? (cur - prev) / prev * 100 : null;
+      const ytd = (cur != null && ytdBase != null && ytdBase !== 0) ? (cur - ytdBase) / ytdBase * 100 : null;
+
+      t += `<td style="text-align:right;padding:8px;border-left:1px solid var(--border);white-space:nowrap">${fmtNav(cur)}</td>`;
+      t += `<td style="text-align:right;padding:8px;white-space:nowrap;${colorPct(deltaAbs)}">${fmtP(deltaAbs)}</td>`;
+      t += `<td style="text-align:right;padding:8px;white-space:nowrap;font-weight:600;${colorPct(deltaPct)}">${fmtPct(deltaPct)}</td>`;
+      t += `<td style="text-align:right;padding:8px;white-space:nowrap;font-weight:600;${colorPct(ytd)}">${fmtPct(ytd)}</td>`;
+    });
+    t += '</tr>';
+  });
+
+  t += '</tbody></table>';
+  document.getElementById('monthly-table-wrap').innerHTML = t;
+})();
 
 // ── Per-Fund Charts ────────────────────────────────────────────────────────
 FUNDS_DATA.forEach(fund => {
