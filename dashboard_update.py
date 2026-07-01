@@ -1341,30 +1341,55 @@ tr:hover td {{ background: var(--surface2); }}
         html += '<div class="card">\n'
         if ch:
             TYPE_CONFIG = {
-                "added":     ("Neukauf",        "#16a34a", "▲"),
-                "removed":   ("Komplettverkauf", "#dc2626", "✕"),
-                "increased": ("Aufstockung",     "#2563eb", "↑"),
-                "decreased": ("Teilverkauf",     "#ea580c", "↓"),
+                "added":     ("Neukauf",         "#16a34a", "▲"),
+                "removed":   ("Komplettverkauf",  "#dc2626", "✕"),
+                "increased": ("Aufstockung",      "#2563eb", "↑"),
+                "decreased": ("Teilverkauf",      "#ea580c", "↓"),
             }
+            def fmt_mv_tx(v):
+                if v is None: return "—"
+                v = float(v)
+                if abs(v) >= 1e6: return f"{v/1e6:.2f} Mio. €"
+                return f"{fmt_eur(v)} €"
             html += '<div class="tbl-wrap"><table>\n'
-            html += '<thead><tr><th>Datum</th><th>Typ</th><th>Unternehmen</th><th>ISIN</th><th style="text-align:right">Marktwert</th><th style="text-align:right">Änderung</th></tr></thead>\n'
+            html += '<thead><tr><th>Datum</th><th>Typ</th><th>Unternehmen</th><th>ISIN</th><th style="text-align:right">Gehandelt</th><th style="text-align:right">Nach Trade</th></tr></thead>\n'
             html += '<tbody>\n'
             for entry in sorted(ch, key=lambda x: x.get("date",""), reverse=True):
-                typ = entry.get("type","")
+                typ   = entry.get("type","")
                 label, color, icon = TYPE_CONFIG.get(typ, (typ, "#6b7280", "•"))
-                mv = entry.get("mv_eur")
-                mv_str = f'{mv/1e6:.2f} Mio. €' if mv and mv >= 1e6 else (f'{mv:,.0f} €' if mv else '—')
-                chg_pct = entry.get("change_pct")
-                chg_str = f'{chg_pct:+.1f}%' if chg_pct is not None else '—'
-                chg_color = "#16a34a" if (chg_pct or 0) > 0 else "#dc2626"
-                badge_html = f'<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;color:{color};background:{color}18">{icon} {label}</span>'
+                mv    = entry.get("mv_eur")
+                chg   = entry.get("change_pct")
+                badge = f'<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;color:{color};background:{color}18">{icon} {label}</span>'
+                # Gehandelter Betrag und Restposition ableiten
+                if typ == "added":
+                    traded, after = mv, mv
+                elif typ == "removed":
+                    traded, after = (-(mv or 0)), 0
+                elif chg is not None and mv:
+                    prev_mv = mv / (1 + chg / 100)
+                    traded  = mv - prev_mv           # positiv = gekauft, negativ = verkauft
+                    after   = mv
+                else:
+                    traded, after = None, mv
+                # Formatierung Gehandelt
+                if traded is not None:
+                    sign_s = "+" if traded > 0 else ""
+                    tc     = "#16a34a" if traded >= 0 else "#dc2626"
+                    traded_html = f'<span style="color:{tc};font-weight:600">{sign_s}{fmt_mv_tx(traded)}</span>'
+                else:
+                    traded_html = "—"
+                # Formatierung Nach Trade
+                if typ == "removed":
+                    after_html = '<span style="color:var(--muted)">Position geschlossen</span>'
+                else:
+                    after_html = fmt_mv_tx(after)
                 html += (f'<tr>'
                          f'<td style="white-space:nowrap;color:var(--muted);font-size:12px">{entry.get("date","—")}</td>'
-                         f'<td>{badge_html}</td>'
+                         f'<td>{badge}</td>'
                          f'<td style="font-weight:500">{entry.get("name","—")[:38]}</td>'
                          f'<td style="font-family:monospace;font-size:11px;color:var(--muted)">{entry.get("isin","—")}</td>'
-                         f'<td style="text-align:right;font-size:12px">{mv_str}</td>'
-                         f'<td style="text-align:right;font-size:12px;font-weight:600;color:{chg_color if chg_pct is not None else "var(--muted)"}">{chg_str}</td>'
+                         f'<td style="text-align:right;font-size:12px">{traded_html}</td>'
+                         f'<td style="text-align:right;font-size:12px;color:var(--muted)">{after_html}</td>'
                          f'</tr>\n')
             html += '</tbody></table></div>\n'
         else:
@@ -1994,42 +2019,51 @@ function showModal(row) {
     html += '<thead><tr style="border-bottom:1px solid var(--border)">'
           + '<th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);font-weight:600">Datum</th>'
           + '<th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--muted);font-weight:600">Typ</th>'
-          + '<th style="text-align:right;padding:6px 8px;font-size:11px;color:var(--muted);font-weight:600">Stück (Δ)</th>'
-          + '<th style="text-align:right;padding:6px 8px;font-size:11px;color:var(--muted);font-weight:600">Kurs</th>'
-          + '<th style="text-align:right;padding:6px 8px;font-size:11px;color:var(--muted);font-weight:600">Marktwert</th>'
+          + '<th style="text-align:right;padding:6px 8px;font-size:11px;color:var(--muted);font-weight:600">Gehandelt</th>'
+          + '<th style="text-align:right;padding:6px 8px;font-size:11px;color:var(--muted);font-weight:600">Nach Trade</th>'
           + '</tr></thead><tbody>';
+    // Hilfsfunktion: Marktwert formatieren
+    const fmtMv = v => {
+      if (v == null) return '—';
+      const abs = Math.abs(v);
+      if (abs >= 1e6) return (v/1e6).toFixed(2) + ' Mio. €';
+      return fmtEur(Math.abs(v)) + ' €';
+    };
     allTx.forEach(e => {
       const cfg = TX_CONFIG[e.type] || {label:e.type, color:'#6b7280', icon:'•'};
       const badge = `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:600;color:${cfg.color};background:${cfg.color}18">${cfg.icon} ${cfg.label}</span>`;
-      // Stückzahl: Differenz wenn qty+prev_qty vorhanden, sonst "n.v." mit Tooltip
-      let stueckCell = '—';
-      if (e.qty != null && e.prev_qty != null) {
-        const diff = e.qty - e.prev_qty;
-        const sign = diff > 0 ? '+' : '';
-        const diffColor = diff > 0 ? '#16a34a' : '#dc2626';
-        stueckCell = `<span style="color:${diffColor};font-weight:600">${sign}${Number(diff.toFixed(2)).toLocaleString('de-AT')} Stk.</span>`
-                   + `<br><span style="font-size:11px;color:var(--muted)">${Number(e.qty).toLocaleString('de-AT')} gesamt</span>`;
-      } else if (e.qty != null) {
-        stueckCell = `${Number(e.qty).toLocaleString('de-AT')} Stk.`;
-      } else if (e.mv_proxy) {
-        stueckCell = `<span style="color:var(--muted);font-size:11px" title="Stückzahl nicht im Excel — Erkennung via Marktwert">n.v.*</span>`;
+      // Gehandelten Betrag und Restposition aus mv_eur + change_pct ableiten
+      let traded = null, afterMv = null;
+      if (e.type === 'added') {
+        traded = e.mv_eur; afterMv = e.mv_eur;
+      } else if (e.type === 'removed') {
+        traded = e.mv_eur ? -e.mv_eur : null; afterMv = 0;
+      } else if (e.change_pct != null && e.mv_eur) {
+        const prevMv = e.mv_eur / (1 + e.change_pct / 100);
+        traded = e.mv_eur - prevMv;   // positiv = Kauf, negativ = Verkauf
+        afterMv = e.mv_eur;
       }
-      // Kurs je Anteil (nur wenn qty bekannt)
-      const kurs = e.price_per_share ? fmtEur(e.price_per_share) + ' €' : '—';
-      // Marktwert
-      const mv = e.mv_eur ? (e.mv_eur >= 1e6 ? (e.mv_eur/1e6).toFixed(2)+' Mio. €' : fmtEur(e.mv_eur)+' €') : '—';
+      // Gehandelt-Zelle
+      let tradedHtml = '—';
+      if (traded != null) {
+        const sign = traded >= 0 ? '+' : '';
+        const tc = traded >= 0 ? '#16a34a' : '#dc2626';
+        tradedHtml = `<span style="color:${tc};font-weight:600">${sign}${fmtMv(traded)}</span>`;
+      }
+      // Nach-Trade-Zelle
+      let afterHtml = '—';
+      if (e.type === 'removed') {
+        afterHtml = '<span style="color:var(--muted);font-size:12px">Position geschlossen</span>';
+      } else if (afterMv != null) {
+        afterHtml = `<span style="color:var(--muted)">${fmtMv(afterMv)}</span>`;
+      }
       html += `<tr style="border-bottom:1px solid var(--border)">
         <td style="padding:8px;white-space:nowrap;color:var(--muted)">${e.date}</td>
         <td style="padding:8px">${badge}</td>
-        <td style="padding:8px;text-align:right">${stueckCell}</td>
-        <td style="padding:8px;text-align:right;white-space:nowrap">${kurs}</td>
-        <td style="padding:8px;text-align:right;white-space:nowrap">${mv}</td>
+        <td style="padding:8px;text-align:right;white-space:nowrap">${tradedHtml}</td>
+        <td style="padding:8px;text-align:right;white-space:nowrap;font-size:12px">${afterHtml}</td>
       </tr>`;
     });
-    // Legende wenn mv_proxy-Einträge vorhanden
-    if (allTx.some(e => e.mv_proxy)) {
-      html += `<tr><td colspan="5" style="padding:8px 8px 2px;font-size:11px;color:var(--muted)">* Stückzahl nicht im Excel — Erkennung basiert auf Marktwertveränderung (&gt;10%)</td></tr>`;
-    }
     html += '</tbody></table>';
     txEl.innerHTML = html;
   } else {
