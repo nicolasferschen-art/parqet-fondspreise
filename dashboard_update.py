@@ -194,23 +194,37 @@ def backfill_nav_history_from_emails(access_token, existing_nav_history):
                 print(f"    ⚠️  Kein Preis/NAV gefunden")
                 continue
 
-            # Fallback: Nettovermögen = Preis × Anteile wenn direkt nicht gefunden
-            if nav is None and price and shares:
-                nav = float(price) * float(shares)
-                print(f"    ℹ️  Nettoverm. berechnet: {price:.4f} × {shares:,.0f} = {nav/1e6:.2f} Mio. €")
+            # Alle (Datum, NAV)-Paare aus dem Excel — ein Email kann mehrere Stichtage enthalten
+            # (z.B. 01.07-Email: "Net Asset Value by 01.07.2026" UND "by 30.06.2026")
+            nav_data_points = blatt_data.get("nav_data_points", [])
 
-            # Echtes Bewertungsdatum: asset_date aus "Asset (by DD.MM.YYYY)"-Zeile (= offizieller Closing-Tag).
-            # Beispiel: Email vom 01.07 enthält "Asset (by 30.06.2026)" → entry_date = "2026-06-30"
-            entry_date = asset_date or report_date or recv_date
-            print(f"    ✅ {entry_date} | Preis={price:.4f} | NAV={nav/1e6:.2f}M" if nav else f"    ✅ {entry_date} | Preis={price:.4f}")
-
-            new_entries.append((fid, {
-                "date": entry_date,
-                "price": round(float(price), 4),
-                "nav": round(float(nav), 2) if nav else None,
-                "perf_ytd": round(float(perf_ytd), 4) if perf_ytd is not None else None,
-                "source": "measured",
-            }))
+            if nav_data_points:
+                # Für jedes Datum-NAV-Paar einen separaten nav_history-Eintrag anlegen
+                for point in nav_data_points:
+                    pt_nav = point["nav"]
+                    pt_date = point["date"]
+                    print(f"    ✅ NAV-Paar: {pt_date} = {pt_nav/1e6:.2f} Mio. €")
+                    new_entries.append((fid, {
+                        "date": pt_date,
+                        "price": round(float(price), 4),
+                        "nav": round(float(pt_nav), 2),
+                        "perf_ytd": round(float(perf_ytd), 4) if perf_ytd is not None else None,
+                        "source": "measured",
+                    }))
+            else:
+                # Fallback: einzelner Eintrag mit asset_date oder report_date
+                if nav is None and price and shares:
+                    nav = float(price) * float(shares)
+                    print(f"    ℹ️  Nettoverm. berechnet: {price:.4f} × {shares:,.0f} = {nav/1e6:.2f} Mio. €")
+                entry_date = asset_date or report_date or recv_date
+                print(f"    ✅ {entry_date} | Preis={price:.4f} | NAV={nav/1e6:.2f}M" if nav else f"    ✅ {entry_date} | Preis={price:.4f}")
+                new_entries.append((fid, {
+                    "date": entry_date,
+                    "price": round(float(price), 4),
+                    "nav": round(float(nav), 2) if nav else None,
+                    "perf_ytd": round(float(perf_ytd), 4) if perf_ytd is not None else None,
+                    "source": "measured",
+                }))
         except Exception as e:
             print(f"    ❌ Fehler: {e}")
             traceback.print_exc()
@@ -420,31 +434,57 @@ def _parse_inventarblatt(ws):
         if non_empty:
             print(f"      Row {i+1}: {non_empty}")
 
+    nav_data_points = []  # alle (Datum, NAV)-Paare aus "Net Asset Value by..."-Zeilen
+
+    def _extract_date_from_row(row, row_str):
+        """Extrahiert Datum aus einer Zeile — unterstützt DD.MM.YYYY, YYYY-MM-DD und datetime-Objekte."""
+        # 1. DD.MM.YYYY in row_str (Zelle als Text)
+        m = re.search(r'(\d{1,2})\.(\d{1,2})\.(\d{4})', row_str)
+        if m:
+            day, mon, yr = m.groups()
+            return f"{yr}-{mon.zfill(2)}-{day.zfill(2)}"
+        # 2. YYYY-MM-DD in row_str (openpyxl datetime als String)
+        m2 = re.search(r'(\d{4})-(\d{2})-(\d{2})', row_str)
+        if m2:
+            return m2.group(0)[:10]
+        # 3. datetime-Objekt direkt in einer Zelle
+        for cell in row:
+            if isinstance(cell, (datetime, date)) and not isinstance(cell, bool):
+                return str(cell)[:10]
+        return None
+
     for i, row in enumerate(rows):
         row_str = " ".join(str(c) for c in row if c is not None).upper()
 
-        # Gesamtvermögen / NAV — viele mögliche Labels
+        # Gesamtvermögen / NAV — viele mögliche Labels.
+        # Enthält die Zeile ein Datum (z.B. "Net Asset Value by 30.06.2026"),
+        # wird das Datum-NAV-Paar separat gesammelt (für korrekte Monatsend-Zuordnung).
         if any(k in row_str for k in ["GESAMTVERM", "FONDSVERM", "NETTOVERM", "TOTAL NET ASSET",
                                        "TOTAL ASSETS", "FUND VOLUME", "INVENTARWERT GESAMT",
                                        "NET ASSET VALUE", "GESAMT"]):
+            nav_val = None
             for cell in row:
-                if isinstance(cell, (int, float)) and cell > 1_000_000:
-                    data["nav"] = float(cell)
-                    print(f"    → NAV gefunden Zeile {i+1}: {cell}")
+                if isinstance(cell, (int, float)) and not isinstance(cell, bool) and cell > 1_000_000:
+                    nav_val = float(cell)
                     break
+            if nav_val:
+                row_date = _extract_date_from_row(row, row_str)
+                if row_date:
+                    nav_data_points.append({"date": row_date, "nav": nav_val})
+                    print(f"    → NAV-Paar Zeile {i+1}: {row_date} = {nav_val/1e6:.2f} Mio. €")
+                else:
+                    data["nav"] = nav_val  # kein Datum → als generischer NAV speichern
+                    print(f"    → NAV Zeile {i+1}: {nav_val/1e6:.2f} Mio. € (kein Datum)")
 
         # Rücknahmepreis / NAV per share
         # Direkter Match auf "Asset (by DD.MM.YYYY)" — Spalte 2 = Anteile, Spalte 7 = Redemption price
         if "ASSET (BY" in row_str or "ASSET(BY" in row_str:
-            # Bewertungsdatum aus der "Asset (by DD.MM.YYYY)"-Zeile extrahieren.
-            # Erste Fundstelle = Vortag (= offizieller Closing-Tag). Dieses Datum ist
-            # der tatsächliche NAV-Stichtag — wichtiger als das Email-Empfangsdatum.
+            # Bewertungsdatum: erste Fundstelle = Vortags-Closing-Datum
             if not data.get("asset_date"):
-                date_m = re.search(r'(\d{1,2})\.(\d{1,2})\.(\d{4})', row_str)
-                if date_m:
-                    day, mon, yr = date_m.groups()
-                    data["asset_date"] = f"{yr}-{mon.zfill(2)}-{day.zfill(2)}"
-                    print(f"    → Bewertungsdatum (Asset-Zeile {i+1}): {data['asset_date']}")
+                d = _extract_date_from_row(row, row_str)
+                if d:
+                    data["asset_date"] = d
+                    print(f"    → Bewertungsdatum (Asset-Zeile {i+1}): {d}")
             # Spalte 2 = Issued/Anteile
             if len(row) > 2 and row[2] is not None:
                 try:
@@ -504,7 +544,22 @@ def _parse_inventarblatt(ws):
                         print(f"    → FY gefunden Zeile {i+1}: {cell}")
                         break
 
-    # Datum aus Zellen
+    # NAV-Daten-Paare auswerten:
+    # Falls mehrere (Datum, NAV)-Paare gefunden (z.B. "01.07" und "30.06"),
+    # alle speichern. Der neueste Eintrag wird als Primär-NAV verwendet (für tagesaktuelle Anzeige).
+    # Das ältere Datum (= Monatsultimo) wird als asset_date gesetzt falls noch nicht vorhanden.
+    if nav_data_points:
+        sorted_points = sorted(nav_data_points, key=lambda x: x["date"])
+        data["nav_data_points"] = sorted_points
+        # Primär-NAV = neuester Wert (für tagesaktuelle Verwendung im Full-Run)
+        data["nav"] = sorted_points[-1]["nav"]
+        # asset_date = ältester Wert (= Vortags-Closing, für korrekten Backfill-Eintrag)
+        if not data.get("asset_date"):
+            data["asset_date"] = sorted_points[0]["date"]
+        print(f"    → NAV-Paare gesamt: {[(p['date'], round(p['nav']/1e6,2)) for p in sorted_points]}")
+        print(f"    → asset_date={data.get('asset_date')}, NAV(primär)={data['nav']/1e6:.2f} Mio. €")
+
+    # Datum aus Zellen (für report_date)
     for row in rows[:10]:
         for cell in row:
             if isinstance(cell, (datetime, date)):
