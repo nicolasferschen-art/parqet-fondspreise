@@ -142,6 +142,85 @@ def find_all_historical_emails(access_token):
     return all_messages
 
 
+def backfill_nav_history_from_emails(access_token, existing_nav_history):
+    """Liest alle historischen INVENTARBLATT-Mails und befüllt nav_history mit täglichen Preisen."""
+    messages = find_all_historical_emails(access_token)
+    nav_history = {k: list(v) for k, v in existing_nav_history.items()}  # shallow copy
+
+    # Gruppiere nach Fund + Eingangsdatum
+    mail_map = {}  # {(fid, recv_date): msg_id}
+    for msg in messages:
+        subj_up = msg.get("subject", "").upper()
+        if "INVENTARBLATT" not in subj_up:
+            continue
+        recv_date = msg.get("receivedDateTime", "")[:10]
+        for fund in FUNDS:
+            fid = fund["id"]
+            if fid not in msg.get("subject", ""):
+                continue
+            key = (fid, recv_date)
+            if key not in mail_map:
+                mail_map[key] = msg["id"]
+
+    total = len(mail_map)
+    print(f"\n📋 {total} historische INVENTARBLATT-Mails gefunden")
+
+    done = 0
+    for (fid, recv_date), msg_id in sorted(mail_map.items()):
+        # Prüfe ob dieses Datum (oder report_date) schon vorhanden
+        existing_dates = {e["date"] for e in nav_history.get(fid, [])}
+
+        done += 1
+        print(f"  [{done}/{total}] Lade {fid} {recv_date}…")
+        try:
+            xlsx_bytes, filename = download_attachment(access_token, msg_id, ".xlsx")
+            if not xlsx_bytes:
+                print(f"    ⚠️  Kein Anhang")
+                continue
+
+            blatt_data = parse_excel(xlsx_bytes, fid)
+            price = blatt_data.get("nav_per_share")
+            nav = blatt_data.get("nav")
+            report_date = blatt_data.get("report_date", recv_date)
+
+            if not price:
+                print(f"    ⚠️  Kein Preis/NAV gefunden")
+                continue
+
+            # NAV-Datum aus Excel (report_date) ist der offizielle Bewertungstag
+            entry_date = report_date or recv_date
+
+            if entry_date in existing_dates:
+                print(f"    ♻️  {entry_date} bereits vorhanden, überspringe")
+                continue
+
+            if fid not in nav_history:
+                nav_history[fid] = []
+
+            nav_history[fid].append({
+                "date": entry_date,
+                "price": round(float(price), 4),
+                "nav": round(float(nav), 2) if nav else None,
+                "source": "measured",
+            })
+            existing_dates.add(entry_date)
+            print(f"    ✅ Preis {price:.4f} @ {entry_date}")
+        except Exception as e:
+            print(f"    ❌ Fehler: {e}")
+            traceback.print_exc()
+
+    # Deduplizieren + sortieren pro Fonds
+    for fid in nav_history:
+        by_date = {}
+        for e in nav_history[fid]:
+            by_date[e["date"]] = e  # letzter Wert gewinnt bei Duplikaten
+        nav_history[fid] = sorted(by_date.values(), key=lambda x: x["date"])
+
+    total_entries = sum(len(v) for v in nav_history.values())
+    print(f"\n✅ NAV-History: {total_entries} Einträge über alle Fonds")
+    return nav_history
+
+
 def backfill_holdings_history(access_token, existing_history):
     """Liest alle historischen INVENTARLISTE-Mails und befüllt holdings_history."""
     messages = find_all_historical_emails(access_token)
@@ -1803,7 +1882,6 @@ new Chart(document.getElementById('cov-aum'), {
 
   months.forEach((month, idx) => {
     const [yr, mo] = month.split('-').map(Number);
-    const prevMonth = mo === 1 ? `${yr-1}-12` : `${yr}-${String(mo-1).padStart(2,'0')}`;
     const label = new Date(yr, mo-1, 1).toLocaleString('de-AT', {month: 'long', year: 'numeric'});
     const rowBg = idx % 2 === 0 ? '' : 'background:var(--bg)';
     t += `<tr style="border-bottom:1px solid var(--border);${rowBg}">`;
@@ -1811,7 +1889,10 @@ new Chart(document.getElementById('cov-aum'), {
 
     FUND_DEFS.forEach(f => {
       const cur = fundMonthly[f.id][month]?.price ?? null;
-      const prev = fundMonthly[f.id][prevMonth]?.price ?? null;
+      // Vorherigen VORHANDENEN Monat für diesen Fonds suchen (nicht zwingend der Kalendervormonat)
+      const fundMonthKeys = Object.keys(fundMonthly[f.id]).filter(m => m < month).sort();
+      const prevMonthKey = fundMonthKeys.length > 0 ? fundMonthKeys[fundMonthKeys.length - 1] : null;
+      const prev = prevMonthKey ? (fundMonthly[f.id][prevMonthKey]?.price ?? null) : null;
       const ytdBase = getYtdBase(f.id, yr);
 
       const deltaAbs = (cur != null && prev != null) ? cur - prev : null;
@@ -2963,14 +3044,21 @@ def main():
                     "isins": {h["isin"]: {"name": h.get("name",""), "mv_eur": h.get("mv_eur")}
                               for h in snaps[last_date] if h.get("isin")}
                 }
+        # NAV-History aus INVENTARBLATT-Mails backfillen
+        print("\n📈 Backfille NAV-History aus INVENTARBLATT-Mails…")
+        nav_history = backfill_nav_history_from_emails(access_token, nav_history)
+
         if github_token and github_repo:
-            print("\n📤 Pushe changes_history.json und holdings_prev.json…")
+            print("\n📤 Pushe changes_history.json, holdings_prev.json und nav_history.json…")
             git_push_file(github_token, github_repo, "docs/changes_history.json",
                          json.dumps(changes_history, ensure_ascii=False).encode("utf-8"),
                          f"Backfill changes history {today_str}")
             git_push_file(github_token, github_repo, "docs/holdings_prev.json",
                          json.dumps(holdings_prev_new, ensure_ascii=False).encode("utf-8"),
                          f"Backfill holdings prev {today_str}")
+            git_push_file(github_token, github_repo, "docs/nav_history.json",
+                         json.dumps(nav_history, ensure_ascii=False).encode("utf-8"),
+                         f"Backfill nav history {today_str}")
         print("\n✅ Backfill abgeschlossen!")
         return
 
