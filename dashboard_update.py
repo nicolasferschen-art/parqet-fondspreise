@@ -179,9 +179,10 @@ def backfill_nav_history_from_emails(access_token, existing_nav_history):
                 continue
 
             blatt_data = parse_excel(xlsx_bytes, fid)
-            price  = blatt_data.get("nav_per_share")
-            nav    = blatt_data.get("nav")
-            shares = blatt_data.get("shares")
+            price    = blatt_data.get("nav_per_share")
+            nav      = blatt_data.get("nav")
+            shares   = blatt_data.get("shares")
+            perf_ytd = blatt_data.get("perf_ytd")
             report_date = blatt_data.get("report_date", recv_date)
 
             if not price:
@@ -197,12 +198,12 @@ def backfill_nav_history_from_emails(access_token, existing_nav_history):
             entry_date = report_date or recv_date
 
             if entry_date in existing_dates:
-                # Überspringe nur wenn NAV schon vorhanden — sonst neu verarbeiten
+                # Überspringe nur wenn NAV + YTD schon vollständig vorhanden
                 existing_entry = next((e for e in nav_history.get(fid, []) if e.get("date") == entry_date), None)
-                if existing_entry and existing_entry.get("nav") is not None:
-                    print(f"    ♻️  {entry_date} bereits vorhanden (inkl. NAV), überspringe")
+                if existing_entry and existing_entry.get("nav") is not None and existing_entry.get("perf_ytd") is not None:
+                    print(f"    ♻️  {entry_date} bereits vollständig, überspringe")
                     continue
-                print(f"    🔄  {entry_date} vorhanden aber NAV=null, aktualisiere…")
+                print(f"    🔄  {entry_date} vorhanden aber unvollständig, aktualisiere…")
 
             if fid not in nav_history:
                 nav_history[fid] = []
@@ -211,6 +212,7 @@ def backfill_nav_history_from_emails(access_token, existing_nav_history):
                 "date": entry_date,
                 "price": round(float(price), 4),
                 "nav": round(float(nav), 2) if nav else None,
+                "perf_ytd": round(float(perf_ytd), 4) if perf_ytd is not None else None,
                 "source": "measured",
             })
             existing_dates.add(entry_date)
@@ -1896,18 +1898,24 @@ new Chart(document.getElementById('cov-aum'), {
 
     FUND_DEFS.forEach(f => {
       const entry    = fundMonthly[f.id][month] ?? null;
-      const curNav   = entry?.nav   ?? null;   // Nettovermögen (gesamt)
-      const curPrice = entry?.price ?? null;   // Fondspreis (für YTD)
+      const curNav   = entry?.nav      ?? null;   // Nettovermögen (gesamt)
+      const curPrice = entry?.price    ?? null;   // Fondspreis
+      const perfYtd  = entry?.perf_ytd ?? null;   // BVI YTD direkt aus Inventarblatt (bevorzugt)
 
       // Vorherigen VORHANDENEN Monat (nicht zwingend Kalendervormonat)
       const fundMonthKeys = Object.keys(fundMonthly[f.id]).filter(m => m < month).sort();
       const prevKey  = fundMonthKeys.length > 0 ? fundMonthKeys[fundMonthKeys.length - 1] : null;
       const prevNav  = prevKey ? (fundMonthly[f.id][prevKey]?.nav ?? null) : null;
-      const ytdBase  = getYtdPriceBase(f.id, yr);
 
-      const deltaAbs = (curNav  != null && prevNav  != null)              ? curNav  - prevNav  : null;
-      const deltaPct = (curNav  != null && prevNav  != null && prevNav)   ? (curNav  - prevNav)  / prevNav  * 100 : null;
-      const ytd      = (curPrice != null && ytdBase != null && ytdBase)   ? (curPrice - ytdBase) / ytdBase  * 100 : null;
+      const deltaAbs = (curNav != null && prevNav != null)            ? curNav - prevNav : null;
+      const deltaPct = (curNav != null && prevNav != null && prevNav) ? (curNav - prevNav) / prevNav * 100 : null;
+
+      // YTD: BVI-Wert aus Inventarblatt (direkt), sonst berechneter Fallback
+      let ytd = perfYtd;
+      if (ytd == null) {
+        const ytdBase = getYtdPriceBase(f.id, yr);
+        ytd = (curPrice != null && ytdBase != null && ytdBase) ? (curPrice - ytdBase) / ytdBase * 100 : null;
+      }
 
       t += `<td style="text-align:right;padding:8px;border-left:2px solid var(--border);white-space:nowrap;font-weight:500">${fmtMio(curNav)}</td>`;
       t += `<td style="text-align:right;padding:8px;white-space:nowrap;${clrPct(deltaAbs)}">${fmtDMio(deltaAbs)}</td>`;
@@ -3315,10 +3323,11 @@ def main():
     today_str = date.today().isoformat()
     if RUN_MODE != "news":
         for fund in funds_data:
-            fid    = fund["id"]
-            price  = fund.get("nav_per_share")
-            nav    = fund.get("nav")
-            shares = fund.get("shares")
+            fid      = fund["id"]
+            price    = fund.get("nav_per_share")
+            nav      = fund.get("nav")
+            shares   = fund.get("shares")
+            perf_ytd = fund.get("perf_ytd")
             # Fallback: Nettovermögen = Preis × Anteile wenn direkt nicht gefunden
             if nav is None and price and shares:
                 nav = float(price) * float(shares)
@@ -3335,6 +3344,7 @@ def main():
                         "date": today_str,
                         "price": round(price, 4),
                         "nav": round(nav, 2) if nav else None,
+                        "perf_ytd": round(float(perf_ytd), 4) if perf_ytd is not None else None,
                         "source": "measured",
                     })
                 nav_history[fid].sort(key=lambda x: x["date"])
