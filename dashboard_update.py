@@ -200,14 +200,11 @@ def backfill_nav_history_from_emails(access_token, existing_nav_history):
 
             if nav_data_points:
                 # Für jedes Datum-NAV-Paar einen separaten nav_history-Eintrag anlegen.
-                # perf_ytd kommt vom letzten (neuesten) Datenpunkt — das ist der Stichtag des Emails.
-                latest_point = sorted(nav_data_points, key=lambda x: x["date"])[-1]
+                # perf_ytd auf alle Punkte schreiben — wird später bei Duplikaten gemergt.
+                pt_ytd = round(float(perf_ytd), 4) if perf_ytd is not None else None
                 for point in nav_data_points:
                     pt_nav  = point["nav"]
                     pt_date = point["date"]
-                    # perf_ytd nur beim neuesten Punkt (= Stichtag laut Inventarblatt)
-                    pt_ytd  = (round(float(perf_ytd), 4) if perf_ytd is not None else None) \
-                               if pt_date == latest_point["date"] else None
                     print(f"    ✅ NAV-Paar: {pt_date} = {pt_nav/1e6:.2f} Mio. € | YTD={pt_ytd}")
                     new_entries.append((fid, {
                         "date": pt_date,
@@ -245,7 +242,16 @@ def backfill_nav_history_from_emails(access_token, existing_nav_history):
     for fid in nav_history:
         by_date = {}
         for e in sorted(nav_history[fid], key=lambda x: x["date"]):
-            by_date[e["date"]] = e  # spätere (chronologisch) überschreiben frühere
+            existing = by_date.get(e["date"])
+            if existing:
+                # Merge: neue Werte überschreiben, aber nie einen vorhandenen Wert mit null ersetzen
+                merged = {**existing, **e}
+                for k in ("nav", "price", "perf_ytd"):
+                    if merged.get(k) is None and existing.get(k) is not None:
+                        merged[k] = existing[k]
+                by_date[e["date"]] = merged
+            else:
+                by_date[e["date"]] = e
         nav_history[fid] = sorted(by_date.values(), key=lambda x: x["date"])
 
     total_entries = sum(len(v) for v in nav_history.values())
