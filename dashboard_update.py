@@ -199,16 +199,21 @@ def backfill_nav_history_from_emails(access_token, existing_nav_history):
             nav_data_points = blatt_data.get("nav_data_points", [])
 
             if nav_data_points:
-                # Für jedes Datum-NAV-Paar einen separaten nav_history-Eintrag anlegen
+                # Für jedes Datum-NAV-Paar einen separaten nav_history-Eintrag anlegen.
+                # perf_ytd kommt vom letzten (neuesten) Datenpunkt — das ist der Stichtag des Emails.
+                latest_point = sorted(nav_data_points, key=lambda x: x["date"])[-1]
                 for point in nav_data_points:
-                    pt_nav = point["nav"]
+                    pt_nav  = point["nav"]
                     pt_date = point["date"]
-                    print(f"    ✅ NAV-Paar: {pt_date} = {pt_nav/1e6:.2f} Mio. €")
+                    # perf_ytd nur beim neuesten Punkt (= Stichtag laut Inventarblatt)
+                    pt_ytd  = (round(float(perf_ytd), 4) if perf_ytd is not None else None) \
+                               if pt_date == latest_point["date"] else None
+                    print(f"    ✅ NAV-Paar: {pt_date} = {pt_nav/1e6:.2f} Mio. € | YTD={pt_ytd}")
                     new_entries.append((fid, {
                         "date": pt_date,
                         "price": round(float(price), 4),
                         "nav": round(float(pt_nav), 2),
-                        "perf_ytd": round(float(perf_ytd), 4) if perf_ytd is not None else None,
+                        "perf_ytd": pt_ytd,
                         "source": "measured",
                     }))
             else:
@@ -1964,20 +1969,19 @@ new Chart(document.getElementById('cov-aum'), {
 
     FUND_DEFS.forEach(f => {
       const entry    = fundMonthly[f.id][month] ?? null;
-      const curNav   = entry?.nav      ?? null;   // Nettovermögen (gesamt)
-      const curPrice = entry?.price    ?? null;   // Fondspreis
-      const perfYtd  = entry?.perf_ytd ?? null;   // BVI YTD direkt aus Inventarblatt (bevorzugt)
+      const curNav   = entry?.nav   ?? null;   // Nettovermögen (gesamt)
+      const curPrice = entry?.price ?? null;   // Fondspreis (Rücknahmepreis)
 
       // Vorherigen VORHANDENEN Monat (nicht zwingend Kalendervormonat)
       const fundMonthKeys = Object.keys(fundMonthly[f.id]).filter(m => m < month).sort();
       const prevKey  = fundMonthKeys.length > 0 ? fundMonthKeys[fundMonthKeys.length - 1] : null;
-      const prevNav  = prevKey ? (fundMonthly[f.id][prevKey]?.nav ?? null) : null;
+      const prevNav  = prevKey ? (fundMonthly[f.id][prevKey]?.nav   ?? null) : null;
 
       const deltaAbs = (curNav != null && prevNav != null)            ? curNav - prevNav : null;
       const deltaPct = (curNav != null && prevNav != null && prevNav) ? (curNav - prevNav) / prevNav * 100 : null;
 
-      // YTD: BVI-Wert aus Inventarblatt (direkt), sonst berechneter Fallback
-      let ytd = perfYtd;
+      // YTD: direkt aus dem Inventarblatt (perf_ytd), Fallback auf Fondspreis-Berechnung
+      let ytd = entry?.perf_ytd ?? null;
       if (ytd == null) {
         const ytdBase = getYtdPriceBase(f.id, yr);
         ytd = (curPrice != null && ytdBase != null && ytdBase) ? (curPrice - ytdBase) / ytdBase * 100 : null;
@@ -1992,7 +1996,7 @@ new Chart(document.getElementById('cov-aum'), {
   });
 
   t += '</tbody></table>';
-  t += '<div style="font-size:11px;color:var(--muted);padding:6px 10px 2px">* YTD-Performance auf Basis des Fondspreises (Rücknahmepreis) seit dem letzten verfügbaren Dezember-Preis des Vorjahres.</div>';
+  t += '<div style="font-size:11px;color:var(--muted);padding:6px 10px 2px">* YTD laut Inventarblatt; falls nicht vorhanden: Berechnung auf Basis Fondspreis Monatsultimo vs. letzter Dezember-Preis</div>';
   t += '</div>';
 
   // ── Balkendiagramm: Nettovermögen je Monat ──
