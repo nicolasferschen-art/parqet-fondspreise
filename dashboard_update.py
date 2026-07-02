@@ -179,20 +179,30 @@ def backfill_nav_history_from_emails(access_token, existing_nav_history):
                 continue
 
             blatt_data = parse_excel(xlsx_bytes, fid)
-            price = blatt_data.get("nav_per_share")
-            nav = blatt_data.get("nav")
+            price  = blatt_data.get("nav_per_share")
+            nav    = blatt_data.get("nav")
+            shares = blatt_data.get("shares")
             report_date = blatt_data.get("report_date", recv_date)
 
             if not price:
                 print(f"    ⚠️  Kein Preis/NAV gefunden")
                 continue
 
+            # Fallback: Nettovermögen = Preis × Anteile wenn direkt nicht gefunden
+            if nav is None and price and shares:
+                nav = float(price) * float(shares)
+                print(f"    ℹ️  Nettoverm. berechnet: {price:.4f} × {shares:,.0f} = {nav/1e6:.2f} Mio. €")
+
             # NAV-Datum aus Excel (report_date) ist der offizielle Bewertungstag
             entry_date = report_date or recv_date
 
             if entry_date in existing_dates:
-                print(f"    ♻️  {entry_date} bereits vorhanden, überspringe")
-                continue
+                # Überspringe nur wenn NAV schon vorhanden — sonst neu verarbeiten
+                existing_entry = next((e for e in nav_history.get(fid, []) if e.get("date") == entry_date), None)
+                if existing_entry and existing_entry.get("nav") is not None:
+                    print(f"    ♻️  {entry_date} bereits vorhanden (inkl. NAV), überspringe")
+                    continue
+                print(f"    🔄  {entry_date} vorhanden aber NAV=null, aktualisiere…")
 
             if fid not in nav_history:
                 nav_history[fid] = []
@@ -3305,9 +3315,13 @@ def main():
     today_str = date.today().isoformat()
     if RUN_MODE != "news":
         for fund in funds_data:
-            fid = fund["id"]
-            price = fund.get("nav_per_share")
-            nav   = fund.get("nav")
+            fid    = fund["id"]
+            price  = fund.get("nav_per_share")
+            nav    = fund.get("nav")
+            shares = fund.get("shares")
+            # Fallback: Nettovermögen = Preis × Anteile wenn direkt nicht gefunden
+            if nav is None and price and shares:
+                nav = float(price) * float(shares)
             if price and price > 0:
                 if fid not in nav_history:
                     nav_history[fid] = []
