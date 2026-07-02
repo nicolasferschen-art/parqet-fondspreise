@@ -4,12 +4,22 @@
     "isin": "AT0000A1QA38",
     "color": "#F97316",
     "name": "Standortfonds AT",
-    "nav": 164159295.38,
     "asset_date": "2026-06-30",
     "shares": 728542.346,
     "nav_per_share": 227.64,
     "perf_ytd": 18.076664,
     "perf_fy": 24.403163,
+    "nav_data_points": [
+      {
+        "date": "2026-06-30",
+        "nav": 164159295.38
+      },
+      {
+        "date": "2026-07-01",
+        "nav": 165847563.81
+      }
+    ],
+    "nav": 165847563.81,
     "countries": [
       {
         "label": "Austria",
@@ -2274,7 +2284,7 @@
     "neg_pl": -5340068.35,
     "equities_mv": 162244054.09,
     "hhi": 130.5,
-    "top10_weight": 28.5,
+    "top10_weight": 28.2,
     "win_rate": 71.4,
     "holdings": [
       {
@@ -5596,12 +5606,22 @@
     "isin": "AT0000A1Z882",
     "color": "#3B7DD8",
     "name": "Standortfonds DE",
-    "nav": 54920871.77,
     "asset_date": "2026-06-30",
     "shares": 285743.662,
     "nav_per_share": 193.9,
     "perf_ytd": 12.210648,
     "perf_fy": 16.442538,
+    "nav_data_points": [
+      {
+        "date": "2026-06-30",
+        "nav": 54920871.77
+      },
+      {
+        "date": "2026-07-01",
+        "nav": 55406899.72
+      }
+    ],
+    "nav": 55406899.72,
     "countries": [
       {
         "label": "United States",
@@ -7973,7 +7993,7 @@
     "neg_pl": -1852198.87,
     "equities_mv": 54825638.55,
     "hhi": 104.6,
-    "top10_weight": 24.1,
+    "top10_weight": 23.9,
     "win_rate": 69.3,
     "holdings": [
       {
@@ -11499,12 +11519,22 @@
     "isin": "AT0000A3EAW0",
     "color": "#16A34A",
     "name": "Dividends and Interest",
-    "nav": 26776959.08,
     "asset_date": "2026-06-30",
     "shares": 237219.561,
     "nav_per_share": 113.8,
     "perf_ytd": 6.684166,
     "perf_fy": 9.757383,
+    "nav_data_points": [
+      {
+        "date": "2026-06-30",
+        "nav": 26776959.08
+      },
+      {
+        "date": "2026-07-01",
+        "nav": 26996811.57
+      }
+    ],
+    "nav": 26996811.57,
     "countries": [
       {
         "label": "United States",
@@ -12487,7 +12517,7 @@
     "neg_pl": -695467.85,
     "equities_mv": 17134380.16,
     "hhi": 79.2,
-    "top10_weight": 22.2,
+    "top10_weight": 22.1,
     "win_rate": 66.0,
     "holdings": [
       {
